@@ -258,9 +258,13 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Services\AiClassificationService.cs" />
     <Compile Include="Services\AzureOpenAiProvider.cs" />
+    <Compile Include="Services\DocxTextExtractor.cs" />
     <Compile Include="Services\GeminiAiProvider.cs" />
     <Compile Include="Services\IaProvider.cs" />
+    <Compile Include="Services\ITextExtractor.cs" />
     <Compile Include="Services\OpenAiProvider.cs" />
+    <Compile Include="Services\PdfTextExtractor.cs" />
+    <Compile Include="Services\PlainTextExtractor.cs" />
     <Compile Include="Services\TextExtractionService.cs" />
     <Compile Include="Utils\FileLogger.cs" />
     <Compile Include="Utils\FileUtil.cs" />

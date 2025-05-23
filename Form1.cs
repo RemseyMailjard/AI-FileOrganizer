@@ -107,7 +107,6 @@ namespace AI_FileOrganizer2
             txtAzureEndpoint.Visible = false;
         }
 
-
         private void cmbProviderSelection_SelectedIndexChanged(object sender, EventArgs e)
         {
             cmbModelSelection.Items.Clear();

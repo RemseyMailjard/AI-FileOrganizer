@@ -1,4 +1,5 @@
-﻿using DocumentFormat.OpenXml.Packaging;
+﻿using AI_FileOrganizer2.Utils;
+using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using System;
 using System.Collections.Generic;
@@ -12,7 +13,14 @@ namespace AI_FileOrganizer2.Services
 {
     public class TextExtractionService
     {
-        private string ExtractText(string filePath)
+        private ILogger logger;
+
+        public TextExtractionService(ILogger logger)
+        {
+            this.logger=logger;
+        }
+
+        public string ExtractText(string filePath)
         {
             string text = "";
             try

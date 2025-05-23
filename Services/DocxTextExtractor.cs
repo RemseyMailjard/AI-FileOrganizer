@@ -33,14 +33,12 @@ namespace AI_FileOrganizer2.Services
                     return string.Empty;
                 }
 
-                // WordprocessingDocument.Open(filePath, false) opent in read-only modus
-                using (WordprocessingDocument wordDoc = WordprocessingDocument.Open(filePath, false))
+                using (WordprocessingDocument wordDoc = WordprocessingDocument.Open(filePath, false)) // Openen in read-only modus
                 {
                     Body body = wordDoc.MainDocumentPart?.Document?.Body;
                     if (body != null)
                     {
-                        // Door paragrafen te itereren en InnerText te trimmen, krijg je schonere tekst
-                        // dan alleen body.InnerText, wat vaak veel extra witruimte bevat.
+                        // Gebruik Environment.NewLine voor consistentie en trim elke paragraaf
                         return string.Join(Environment.NewLine, body.Elements<Paragraph>().Select(p => p.InnerText.Trim())).Trim();
                     }
                 }
@@ -65,7 +63,7 @@ namespace AI_FileOrganizer2.Services
                 _logger.Log($"FOUT: Onbekende fout bij DOCX-extractie van '{Path.GetFileName(filePath)}': {ex.Message}");
                 return string.Empty;
             }
-            return string.Empty; // Zorg dat er altijd iets wordt teruggegeven, ook al is het een lege string
+            return string.Empty; // In geval van een onverwachte codepad zonder return
         }
     }
 }
