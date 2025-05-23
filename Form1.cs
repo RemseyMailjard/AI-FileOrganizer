@@ -58,6 +58,7 @@ namespace AI_FileOrganizer2
         private System.Windows.Forms.ComboBox cmbProviderSelection;
         private System.Windows.Forms.Label lblProvider;
 
+
         public Form1()
         {
             InitializeComponent();
@@ -80,13 +81,19 @@ namespace AI_FileOrganizer2
             this.lblProvider = new System.Windows.Forms.Label();
             this.cmbProviderSelection = new System.Windows.Forms.ComboBox();
             // Add to your layout, set Items, and add a SelectionChanged event
-            this.cmbProviderSelection.Items.AddRange(new object[] {
-                "Gemini (Google)",
-                "OpenAI (openai.com)",
-                "Azure OpenAI"
-            });
-this.cmbProviderSelection.SelectedIndex = 0; // Default
-    cmbModelSelection.Items.AddRange(new object[] {
+            cmbProviderSelection.Items.AddRange(new object[] {
+                    "Gemini (Google)",
+                    "OpenAI (openai.com)",
+                    "Azure OpenAI"
+                });
+                        cmbProviderSelection.SelectedIndex = 0;
+                        cmbProviderSelection.SelectedIndexChanged += cmbProviderSelection_SelectedIndexChanged;
+
+            // Trigger once to set initial models
+            cmbProviderSelection_SelectedIndexChanged(null, null);
+        
+
+            cmbModelSelection.Items.AddRange(new object[] {
                 "gemini-1.5-pro-latest",
                 "gemini-1.5-flash-latest",
                 "gemini-1.0-pro-latest",
@@ -110,6 +117,55 @@ this.cmbProviderSelection.SelectedIndex = 0; // Default
             chkRenameFiles.Checked = false; // Standaard niet aanvinken
         }
 
+        private void cmbProviderSelection_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            cmbModelSelection.Items.Clear();
+
+            string provider = cmbProviderSelection.SelectedItem.ToString();
+            if (provider == "Gemini (Google)")
+            {
+                cmbModelSelection.Items.AddRange(new object[]
+                {
+            "gemini-1.5-pro-latest",
+            "gemini-1.5-flash-latest",
+            "gemini-1.0-pro-latest",
+            "gemini-pro",
+            "gemini-2.5-pro-preview-05-06",
+            "gemini-2.5-flash-preview-04-17",
+            "gemini-2.0-flash-001",
+            "gemini-2.0-flash-lite-001"
+                });
+                cmbModelSelection.SelectedIndex = 0;
+                lblApiKey.Text = "Google API Key:";
+                // (Optional) Hide Azure endpoint/deployment fields if present
+            }
+            else if (provider == "OpenAI (openai.com)")
+            {
+                cmbModelSelection.Items.AddRange(new object[]
+                {
+            "gpt-4o",
+            "gpt-4-turbo",
+            "gpt-4",
+            "gpt-3.5-turbo",
+            "gpt-3.5-turbo-0125",
+            "gpt-3.5-turbo-0613"
+                });
+                cmbModelSelection.SelectedIndex = 0;
+                lblApiKey.Text = "OpenAI API Key:";
+                // (Optional) Hide Azure endpoint/deployment fields if present
+            }
+            else if (provider == "Azure OpenAI")
+            {
+                // Models shown here are deployment names (user must fill in matching their Azure config)
+                cmbModelSelection.Items.AddRange(new object[]
+                {
+            "YOUR-AZURE-DEPLOYMENT-NAME", // The user should replace or add their deployment names
+                });
+                cmbModelSelection.SelectedIndex = 0;
+                lblApiKey.Text = "Azure OpenAI API Key:";
+                // (Optional) Show Azure endpoint/deployment fields if you want
+            }
+        }
         private void SetupApiKeyPlaceholder(TextBox textBox, string placeholderText)
         {
             textBox.GotFocus -= RemoveApiKeyPlaceholderInternal;
@@ -316,6 +372,9 @@ this.cmbProviderSelection.SelectedIndex = 0; // Default
 
         private async Task OrganizeFilesAsync(string sourcePath, string destinationBasePath, string apiKey, CancellationToken cancellationToken)
         {
+
+           
+
             int processedFiles = 0;
             int movedFiles = 0;
             int filesWithSubfolders = 0;
