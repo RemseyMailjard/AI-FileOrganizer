@@ -55,8 +55,7 @@ namespace AI_FileOrganizer2
         private static readonly HttpClient _httpClient = new HttpClient();
         private long _totalTokensUsed = 0;
         private CancellationTokenSource _cancellationTokenSource;
-        private System.Windows.Forms.ComboBox cmbProviderSelection;
-        private System.Windows.Forms.Label lblProvider;
+
 
 
         public Form1()
@@ -66,8 +65,22 @@ namespace AI_FileOrganizer2
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            txtApiKey.Text = "YOUR_GOOGLE_API_KEY_HERE";
+            // Ensure provider selection is set up (assume in designer)
+            if (cmbProviderSelection.Items.Count == 0)
+            {
+                cmbProviderSelection.Items.AddRange(new object[]
+                {
+            "Gemini (Google)",
+            "OpenAI (openai.com)",
+            "Azure OpenAI"
+                });
+            }
 
+            cmbProviderSelection.SelectedIndexChanged -= cmbProviderSelection_SelectedIndexChanged; // Prevent double attach
+            cmbProviderSelection.SelectedIndexChanged += cmbProviderSelection_SelectedIndexChanged;
+            cmbProviderSelection.SelectedIndex = 0; // Will trigger and set models
+
+            txtApiKey.Text = "YOUR_GOOGLE_API_KEY_HERE";
             SetupApiKeyPlaceholder(txtApiKey, "YOUR_GOOGLE_API_KEY_HERE");
             txtApiKey.UseSystemPasswordChar = true;
 
@@ -77,34 +90,6 @@ namespace AI_FileOrganizer2
             txtSourceFolder.Text = Path.Combine(desktopPath, "AI Organizer Bronmap");
             txtDestinationFolder.Text = Path.Combine(documentsPath, "AI Organizer Resultaat");
 
-
-            this.lblProvider = new System.Windows.Forms.Label();
-            this.cmbProviderSelection = new System.Windows.Forms.ComboBox();
-            // Add to your layout, set Items, and add a SelectionChanged event
-            cmbProviderSelection.Items.AddRange(new object[] {
-                    "Gemini (Google)",
-                    "OpenAI (openai.com)",
-                    "Azure OpenAI"
-                });
-                        cmbProviderSelection.SelectedIndex = 0;
-                        cmbProviderSelection.SelectedIndexChanged += cmbProviderSelection_SelectedIndexChanged;
-
-            // Trigger once to set initial models
-            cmbProviderSelection_SelectedIndexChanged(null, null);
-        
-
-            cmbModelSelection.Items.AddRange(new object[] {
-                "gemini-1.5-pro-latest",
-                "gemini-1.5-flash-latest",
-                "gemini-1.0-pro-latest",
-                "gemini-pro",
-                "gemini-2.5-pro-preview-05-06",
-                "gemini-2.5-flash-preview-04-17",
-                "gemini-2.0-flash-001",
-                "gemini-2.0-flash-lite-001",
-            });
-            cmbModelSelection.SelectedIndex = 0;
-
             lblTokensUsed.Text = "Tokens gebruikt: 0";
             progressBar1.Minimum = 0;
             progressBar1.Value = 0;
@@ -112,16 +97,19 @@ namespace AI_FileOrganizer2
             progressBar1.Visible = false;
             btnStopOrganization.Enabled = false;
             btnSaveLog.Enabled = false;
+            chkRenameFiles.Checked = false; // Default: not checked
 
-            // Nieuw: Standaardinstelling voor hernoemen van bestanden
-            chkRenameFiles.Checked = false; // Standaard niet aanvinken
+            // Always start with Azure fields hidden
+            lblAzureEndpoint.Visible = false;
+            txtAzureEndpoint.Visible = false;
         }
+
 
         private void cmbProviderSelection_SelectedIndexChanged(object sender, EventArgs e)
         {
             cmbModelSelection.Items.Clear();
 
-            string provider = cmbProviderSelection.SelectedItem.ToString();
+            string provider = cmbProviderSelection.SelectedItem?.ToString() ?? "";
             if (provider == "Gemini (Google)")
             {
                 cmbModelSelection.Items.AddRange(new object[]
@@ -135,9 +123,10 @@ namespace AI_FileOrganizer2
             "gemini-2.0-flash-001",
             "gemini-2.0-flash-lite-001"
                 });
-                cmbModelSelection.SelectedIndex = 0;
                 lblApiKey.Text = "Google API Key:";
-                // (Optional) Hide Azure endpoint/deployment fields if present
+                // Hide Azure endpoint fields if present
+                lblAzureEndpoint.Visible = false;
+                txtAzureEndpoint.Visible = false;
             }
             else if (provider == "OpenAI (openai.com)")
             {
@@ -150,22 +139,23 @@ namespace AI_FileOrganizer2
             "gpt-3.5-turbo-0125",
             "gpt-3.5-turbo-0613"
                 });
-                cmbModelSelection.SelectedIndex = 0;
                 lblApiKey.Text = "OpenAI API Key:";
-                // (Optional) Hide Azure endpoint/deployment fields if present
+                lblAzureEndpoint.Visible = false;
+                txtAzureEndpoint.Visible = false;
             }
             else if (provider == "Azure OpenAI")
             {
-                // Models shown here are deployment names (user must fill in matching their Azure config)
                 cmbModelSelection.Items.AddRange(new object[]
                 {
-            "YOUR-AZURE-DEPLOYMENT-NAME", // The user should replace or add their deployment names
+            "YOUR-AZURE-DEPLOYMENT-NAME"
                 });
-                cmbModelSelection.SelectedIndex = 0;
                 lblApiKey.Text = "Azure OpenAI API Key:";
-                // (Optional) Show Azure endpoint/deployment fields if you want
+                lblAzureEndpoint.Visible = true;
+                txtAzureEndpoint.Visible = true;
             }
+            cmbModelSelection.SelectedIndex = 0;
         }
+
         private void SetupApiKeyPlaceholder(TextBox textBox, string placeholderText)
         {
             textBox.GotFocus -= RemoveApiKeyPlaceholderInternal;
