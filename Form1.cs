@@ -13,6 +13,12 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using System.Diagnostics;
 using DocumentFormat.OpenXml.Vml.Office;
+using OpenAI.Chat;
+using OpenAI;
+using Azure.AI.OpenAI;
+using Azure;
+using System.ClientModel;
+
 
 namespace AI_FileOrganizer2
 {
@@ -49,6 +55,8 @@ namespace AI_FileOrganizer2
         private static readonly HttpClient _httpClient = new HttpClient();
         private long _totalTokensUsed = 0;
         private CancellationTokenSource _cancellationTokenSource;
+        private System.Windows.Forms.ComboBox cmbProviderSelection;
+        private System.Windows.Forms.Label lblProvider;
 
         public Form1()
         {
@@ -68,7 +76,17 @@ namespace AI_FileOrganizer2
             txtSourceFolder.Text = Path.Combine(desktopPath, "AI Organizer Bronmap");
             txtDestinationFolder.Text = Path.Combine(documentsPath, "AI Organizer Resultaat");
 
-            cmbModelSelection.Items.AddRange(new object[] {
+
+            this.lblProvider = new System.Windows.Forms.Label();
+            this.cmbProviderSelection = new System.Windows.Forms.ComboBox();
+            // Add to your layout, set Items, and add a SelectionChanged event
+            this.cmbProviderSelection.Items.AddRange(new object[] {
+                "Gemini (Google)",
+                "OpenAI (openai.com)",
+                "Azure OpenAI"
+            });
+this.cmbProviderSelection.SelectedIndex = 0; // Default
+    cmbModelSelection.Items.AddRange(new object[] {
                 "gemini-1.5-pro-latest",
                 "gemini-1.5-flash-latest",
                 "gemini-1.0-pro-latest",
@@ -532,6 +550,135 @@ namespace AI_FileOrganizer2
             return name;
         }
 
+
+
+        private async Task<string> CallOpenAIAsync(string prompt, string modelName, string apiKey, CancellationToken cancellationToken)
+        {
+            var client = new OpenAI.Chat.ChatClient(model: modelName, apiKey: apiKey);
+            var messages = new List<OpenAI.Chat.ChatMessage>
+    {
+        new OpenAI.Chat.UserChatMessage(prompt)
+    };
+
+            // Await the chat completion and get the ClientResult<ChatCompletion>
+            var completionResult = await client.CompleteChatAsync(messages, options: null, cancellationToken);
+
+            // Get the actual ChatCompletion from the .Value property
+            var chatCompletion = completionResult.Value;
+
+            // Now you can access Content on the ChatCompletion object
+            var firstContent = chatCompletion.Content.FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(firstContent?.Text))
+            {
+                return firstContent.Text.Trim();
+            }
+
+            return null;
+        }
+
+
+
+
+
+
+        /// <summary>
+        /// Classifies the input text into a category using the selected LLM provider and model.
+        /// </summary>
+        /// <param name="textToClassify">Text to be classified.</param>
+        /// <param name="categories">List of category names.</param>
+        /// <param name="apiKey">API key for the provider.</param>
+        /// <param name="modelName">Model or deployment name.</param>
+        /// <param name="provider">Provider name ("Gemini (Google)", "OpenAI (openai.com)", "Azure OpenAI").</param>
+        /// <param name="azureEndpoint">Azure endpoint (only for Azure OpenAI).</param>
+        /// <param name="cancellationToken"></param>
+        /// <returns>The chosen category as a string.</returns>
+        private async Task<string> ClassifyTextWithLlmAsync(
+                                        string textToClassify,
+                                        List<string> categories,
+                                        string apiKey,
+                                        string modelName,
+                                        string provider,
+                                        string azureEndpoint,
+                                        CancellationToken cancellationToken)
+                                    {
+                                        // Fallback names from your constants
+                                        const string FALLBACK_CATEGORY_NAME = "Overig";
+                                        var validCategories = new List<string>(categories) { FALLBACK_CATEGORY_NAME };
+
+                                        if (string.IsNullOrWhiteSpace(textToClassify))
+                                            return null;
+
+                                        // Prompt (same as your original Gemini one)
+                                        var categoryListForPrompt = string.Join("\n", categories.Select(cat => $"- {cat}"));
+                                        var prompt = $@"
+                            Je bent een AI-assistent gespecialiseerd in het organiseren van documenten.
+                            Jouw taak is om de volgende tekst te analyseren en te bepalen in welke van de onderstaande categorieën deze het beste past.
+
+                            Beschikbare categorieën:
+                            {categoryListForPrompt}
+                            - {FALLBACK_CATEGORY_NAME} (gebruik deze als geen andere categorie duidelijk past)
+
+                            Geef ALLEEN de naam van de gekozen categorie terug, exact zoals deze in de lijst staat. Geen extra uitleg, nummers of opmaak.
+
+                            Tekstfragment om te classificeren:
+                            ---
+                            {textToClassify.Substring(0, Math.Min(textToClassify.Length, 8000))}
+                            ---
+
+                            Categorie:";
+
+                    // --- LLM dispatch ---
+                    string chosenCategory = null;
+
+                    try
+                    {
+                        switch (provider)
+                        {
+                            case "Gemini (Google)":
+                                chosenCategory = await CallGeminiApiAsync(prompt, modelName, 50, 0.0f, apiKey, cancellationToken);
+                                break;
+                            case "OpenAI (openai.com)":
+                                chosenCategory = await CallOpenAIAsync(prompt, modelName, apiKey, cancellationToken);
+                                break;
+                            case "Azure OpenAI":
+                                chosenCategory = await CallAzureOpenAIAsync(prompt, azureEndpoint, modelName, apiKey, cancellationToken);
+                                break;
+                            default:
+                                LogMessage("FOUT: Onbekende provider geselecteerd in ClassifyTextWithLlmAsync.");
+                                return FALLBACK_CATEGORY_NAME;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        LogMessage($"FOUT tijdens LLM-aanroep: {ex.Message}");
+                        return FALLBACK_CATEGORY_NAME;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(chosenCategory))
+                        return FALLBACK_CATEGORY_NAME;
+
+                    // Clean and match the result
+                    chosenCategory = chosenCategory.Trim();
+
+                    if (validCategories.Contains(chosenCategory))
+                        return chosenCategory;
+
+                    // Fuzzy fallback: try to match even with minor differences
+                    foreach (var validCat in validCategories)
+                    {
+                        if (validCat.ToLower().Contains(chosenCategory.ToLower()) || chosenCategory.ToLower().Contains(validCat.ToLower()))
+                        {
+                            LogMessage($"INFO: Fuzzy match: '{chosenCategory}' -> '{validCat}'");
+                            return validCat;
+                        }
+                    }
+
+                    LogMessage($"WAARSCHUWING: Kreeg onbekende categorie '{chosenCategory}'. Gebruik fallback.");
+                    return FALLBACK_CATEGORY_NAME;
+                }
+
+
+     
         private async Task<string> CallGeminiApiAsync(string prompt, string modelName, int maxTokens, float temperature, string apiKey, CancellationToken cancellationToken)
         {
             var requestBody = new
@@ -740,6 +887,45 @@ Categorie:";
                 return sanitizedName;
             }
             return Path.GetFileNameWithoutExtension(originalFilename); // Fallback naar originele naam
+        }
+
+        private async Task<string> CallAzureOpenAIAsync(
+                     string prompt,
+                     string azureEndpoint,
+                     string deploymentOrModelName,
+                     string apiKey,
+                     CancellationToken cancellationToken)
+                        {
+                            // Step 1: Create the client using the API key
+                            var endpoint = new Uri(azureEndpoint);
+
+                            // Note: For v2+ use AzureOpenAIClient instead of OpenAIClient
+                            var azureClient = new AzureOpenAIClient(endpoint, new ApiKeyCredential(apiKey));
+
+                            // Step 2: Get the chat client for your deployment (deploymentOrModelName)
+                            var chatClient = azureClient.GetChatClient(deploymentOrModelName);
+
+                            // Step 3: Prepare the messages (single-turn or multi-turn)
+                            var messages = new List<ChatMessage>
+                    {
+                        new UserChatMessage(prompt)
+                    };
+
+            // Step 4: Get the chat completion (async)
+            var completionResult = await chatClient.CompleteChatAsync(messages, options: null, cancellationToken);
+
+
+            // Step 5: Extract the content from the result
+            // The .Content is a list of one or more (for function/tool calls), usually just one
+            var firstContent = completionResult.Value.Content;
+
+            if (!string.IsNullOrWhiteSpace(firstContent?.ToString()))
+            {
+                return firstContent.ToString().Trim();
+            }
+
+            // Fallback: No answer
+            return null;
         }
 
 
