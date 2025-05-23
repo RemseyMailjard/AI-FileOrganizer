@@ -35,7 +35,7 @@ namespace AI_FileOrganizer2.Services
                 };
 
                 var completionResult = await client.CompleteChatAsync(messages, chatCompletionOptions, cancellationToken);
-                var chatCompletion = completionResult.Value; // Gebruik .Value voor de resultaten
+                var chatCompletion = completionResult.Value;
 
                 var firstContent = chatCompletion.Content.FirstOrDefault();
                 if (!string.IsNullOrWhiteSpace(firstContent?.Text))
@@ -49,7 +49,7 @@ namespace AI_FileOrganizer2.Services
             }
             catch (Exception ex)
             {
-                // Log de fout: Console.WriteLine($"Fout bij OpenAI: {ex.Message}");
+         
                 return null;
             }
         }

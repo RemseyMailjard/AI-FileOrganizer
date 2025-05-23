@@ -18,20 +18,19 @@ using DocumentFormat.OpenXml.Vml.Office; // Possibly not needed, check if used e
 using AI_FileOrganizer2.Services; // Ensure this is present
 using AI_FileOrganizer2.Utils; // Ensure this is present
 using Microsoft.Extensions.Logging; // Ensure this is present
-using ILogger = AI_FileOrganizer2.Utils.ILogger; // Alias to avoid conflict with Microsoft.Extensions.Logging.ILogger
-
+using ILogger = AI_FileOrganizer2.Utils.ILogger;
+using Microsoft.WindowsAPICodePack.Dialogs; // Alias to avoid conflict with Microsoft.Extensions.Logging.ILogger
+using Microsoft.WindowsAPICodePack.Dialogs;
 namespace AI_FileOrganizer2
 {
     public partial class Form1 : Form
     {
-        // Removed GEMINI_BASE_URL as it's now internal to GeminiAiProvider
-        // private const string GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/";
+
         private const int MAX_TEXT_LENGTH_FOR_LLM = 8000;
         private const int MIN_SUBFOLDER_NAME_LENGTH = 3; // Kept as it's a validation rule in Form1
         private const int MAX_SUBFOLDER_NAME_LENGTH = 50; // Kept as it's a validation rule in Form1
         private const int MAX_FILENAME_LENGTH = 100; // Maximale lengte voor AI-gegenereerde bestandsnaam
         private ILogger _logger;
-
 
         private readonly string[] SUPPORTED_EXTENSIONS = { ".pdf", ".docx", ".txt", ".md" };
 
@@ -69,8 +68,7 @@ namespace AI_FileOrganizer2
         private void Form1_Load(object sender, EventArgs e)
         {
 
-            _logger = new UiLogger(rtbLog); // rtbLog is je RichTextBox voor log
-            // Ensure provider selection is set up (assume in designer)
+            _logger = new UiLogger(rtbLog); 
             if (cmbProviderSelection.Items.Count == 0)
             {
                 cmbProviderSelection.Items.AddRange(new object[]
@@ -206,28 +204,51 @@ namespace AI_FileOrganizer2
 
         private void btnSelectSourceFolder_Click(object sender, EventArgs e)
         {
-            using (var fbd = new FolderBrowserDialog())
+            using (var dialog = new CommonOpenFileDialog())
             {
-                fbd.Description = "Selecteer de bronmap met bestanden (inclusief submappen)";
-                fbd.ShowNewFolderButton = false;
+                dialog.IsFolderPicker = true; // Essentieel: maakt het een map-selectie dialoogvenster
+                dialog.Title = "Selecteer de bronmap met bestanden (inclusief submappen)";
 
-                if (fbd.ShowDialog() == DialogResult.OK)
+                // Stel de initiële map in als de huidige tekst in het tekstveld, indien geldig
+                if (Directory.Exists(txtSourceFolder.Text))
                 {
-                    txtSourceFolder.Text = fbd.SelectedPath;
+                    dialog.InitialDirectory = txtSourceFolder.Text;
+                }
+                else
+                {
+                    dialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop); // Val terug naar bureaublad
+                }
+                dialog.RestoreDirectory = true; // Onthoud de laatst geopende map
+
+                if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
+                {
+                    txtSourceFolder.Text = dialog.FileName; // FileName bevat hier de geselecteerde map
                 }
             }
         }
 
         private void btnSelectDestinationFolder_Click(object sender, EventArgs e)
         {
-            using (var fbd = new FolderBrowserDialog())
+            using (var dialog = new CommonOpenFileDialog())
             {
-                fbd.Description = "Selecteer de doelmap voor geordende bestanden";
-                fbd.ShowNewFolderButton = true;
+                dialog.IsFolderPicker = true; // Essentieel: maakt het een map-selectie dialoogvenster
+                dialog.Title = "Selecteer de doelmap voor geordende bestanden";
+                dialog.EnsurePathExists = true; // Zorgt dat de map bestaat als je de naam in typt
 
-                if (fbd.ShowDialog() == DialogResult.OK)
+                // Stel de initiële map in als de huidige tekst in het tekstveld, indien geldig
+                if (Directory.Exists(txtDestinationFolder.Text))
                 {
-                    txtDestinationFolder.Text = fbd.SelectedPath;
+                    dialog.InitialDirectory = txtDestinationFolder.Text;
+                }
+                else
+                {
+                    dialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments); // Val terug naar Mijn Documenten
+                }
+                dialog.RestoreDirectory = true; // Onthoud de laatst geopende map
+
+                if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
+                {
+                    txtDestinationFolder.Text = dialog.FileName; // FileName bevat hier de geselecteerde map
                 }
             }
         }
@@ -309,17 +330,35 @@ namespace AI_FileOrganizer2
 
         private void btnSaveLog_Click(object sender, EventArgs e)
         {
-            using (SaveFileDialog saveFileDialog = new SaveFileDialog())
+            using (var dialog = new CommonSaveFileDialog()) // Gebruik CommonSaveFileDialog
             {
-                saveFileDialog.Filter = "Textbestanden (*.txt)|*.txt";
-                saveFileDialog.Title = "Sla logbestand op";
-                saveFileDialog.FileName = $"AI_Organizer_Log_{DateTime.Now:yyyyMMdd_HHmmss}.txt";
+                // Voeg filters toe op de modernere manier
+                dialog.Filters.Add(new CommonFileDialogFilter("Tekstbestanden", "*.txt"));
+                dialog.DefaultExtension = "txt"; // Stel de standaardextensie in
 
-                if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                dialog.Title = "Sla logbestand op";
+                // DE OPLOSSING: Gebruik DefaultFileName in plaats van FileName
+                dialog.DefaultFileName = $"AI_Organizer_Log_{DateTime.Now:yyyyMMdd_HHmmss}.txt";
+
+                // Optioneel: Stel de initiële map in
+                // Gebruik de doelmap als uitgangspunt, of Mijn Documenten als die niet bestaat
+                if (Directory.Exists(txtDestinationFolder.Text))
+                {
+                    dialog.InitialDirectory = txtDestinationFolder.Text;
+                }
+                else
+                {
+                    dialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                }
+                dialog.RestoreDirectory = true; // Onthoud de laatst geopende map
+
+                // Toon het dialoogvenster
+                if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
                 {
                     try
                     {
-                        File.WriteAllText(saveFileDialog.FileName, rtbLog.Text);
+                        // dialog.FileName bevat het volledige pad inclusief de gekozen bestandsnaam
+                        File.WriteAllText(dialog.FileName, rtbLog.Text);
                         MessageBox.Show("Logbestand succesvol opgeslagen.", "Succes", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
                     catch (Exception ex)
@@ -329,7 +368,6 @@ namespace AI_FileOrganizer2
                 }
             }
         }
-
         private void SetUiEnabled(bool enabled)
         {
             txtApiKey.Enabled = enabled;
