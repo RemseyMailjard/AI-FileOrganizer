@@ -2,38 +2,40 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net.Http; // Still needed for _httpClient
-using System.Text.RegularExpressions;
+using System.Net.Http; // Nodig voor _httpClient (voor GeminiAiProvider)
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using Newtonsoft.Json; // May not be strictly needed in Form1 anymore if only AI service uses it
-using UglyToad.PdfPig; // For PDF extraction example
-using DocumentFormat.OpenXml.Packaging; // For DOCX extraction example
-using DocumentFormat.OpenXml.Wordprocessing; // For DOCX extraction example
-using System.Diagnostics;
-using DocumentFormat.OpenXml.Vml.Office; // Possibly not needed, check if used elsewhere
 
-
-using AI_FileOrganizer2.Services; // Ensure this is present
-using AI_FileOrganizer2.Utils; // Ensure this is present
-using Microsoft.Extensions.Logging; // Ensure this is present
-using ILogger = AI_FileOrganizer2.Utils.ILogger;
-using Microsoft.WindowsAPICodePack.Dialogs; // Alias to avoid conflict with Microsoft.Extensions.Logging.ILogger
+// Externe bibliotheken voor modernere dialoogvensters (.NET Framework 4.8)
 using Microsoft.WindowsAPICodePack.Dialogs;
+
+// Jouw eigen services en utilities
+using AI_FileOrganizer2.Services; // Voor IAiProvider, AiClassificationService, TextExtractionService
+using AI_FileOrganizer2.Utils; // Voor ILogger (jouw custom logger)
+
+// Logger afhankelijkheden (voor ILogger alias)
+using ILogger = AI_FileOrganizer2.Utils.ILogger; // Alias om conflict met Microsoft.Extensions.Logging.ILogger te voorkomen
+
+
 namespace AI_FileOrganizer2
 {
     public partial class Form1 : Form
     {
-
+        // Constanten voor LLM-parameters en validatie
         private const int MAX_TEXT_LENGTH_FOR_LLM = 8000;
-        private const int MIN_SUBFOLDER_NAME_LENGTH = 3; // Kept as it's a validation rule in Form1
-        private const int MAX_SUBFOLDER_NAME_LENGTH = 50; // Kept as it's a validation rule in Form1
+        private const int MIN_SUBFOLDER_NAME_LENGTH = 3;
+        private const int MAX_SUBFOLDER_NAME_LENGTH = 50;
         private const int MAX_FILENAME_LENGTH = 100; // Maximale lengte voor AI-gegenereerde bestandsnaam
+
+        // Logger instantie voor UI-updates
         private ILogger _logger;
 
+        // Ondersteunde bestandsextensies voor tekstextractie
         private readonly string[] SUPPORTED_EXTENSIONS = { ".pdf", ".docx", ".txt", ".md" };
 
+        // Mappen categorieën voor organisatie
         private readonly Dictionary<string, string> FOLDER_CATEGORIES = new Dictionary<string, string>
         {
             { "Financiën", "1. Financiën" },
@@ -53,22 +55,34 @@ namespace AI_FileOrganizer2
         private const string FALLBACK_CATEGORY_NAME = "Overig";
         private string FALLBACK_FOLDER_NAME => $"0. {FALLBACK_CATEGORY_NAME}";
 
-        // HttpClient is still needed here as it's passed to GeminiAiProvider
+        // HttpClient is statisch voor hergebruik en efficiëntie bij API-aanroepen (vooral voor Gemini)
         private static readonly HttpClient _httpClient = new HttpClient();
         private long _totalTokensUsed = 0;
         private CancellationTokenSource _cancellationTokenSource;
-        private readonly AiClassificationService _aiService = new AiClassificationService();
+
+        // Services die via Dependency Injection (DI) zouden gaan, maar hier handmatig geïnitialiseerd
+        private readonly AiClassificationService _aiService;
+        private readonly TextExtractionService _textExtractionService;
 
 
         public Form1()
         {
             InitializeComponent();
+
+            // Initialiseer de logger EERST, want andere services hebben deze nodig
+            _logger = new UiLogger(rtbLog);
+
+            // Initialiseer de services, geef de logger mee waar nodig
+            _aiService = new AiClassificationService();
+            _textExtractionService = new TextExtractionService(_logger);
         }
 
         private void Form1_Load(object sender, EventArgs e)
         {
+            // Initialisatie van de logger is nu in de constructor, dus deze regel is overbodig.
+            // _logger = new UiLogger(rtbLog);
 
-            _logger = new UiLogger(rtbLog); 
+            // Zorg ervoor dat provider-selectie is ingesteld (aangenomen in designer)
             if (cmbProviderSelection.Items.Count == 0)
             {
                 cmbProviderSelection.Items.AddRange(new object[]
@@ -79,34 +93,41 @@ namespace AI_FileOrganizer2
                 });
             }
 
-            cmbProviderSelection.SelectedIndexChanged -= cmbProviderSelection_SelectedIndexChanged; // Prevent double attach
+            // Voorkom dubbele event-handlers en voeg toe
+            cmbProviderSelection.SelectedIndexChanged -= cmbProviderSelection_SelectedIndexChanged;
             cmbProviderSelection.SelectedIndexChanged += cmbProviderSelection_SelectedIndexChanged;
-            cmbProviderSelection.SelectedIndex = 0; // Will trigger and set models
+            cmbProviderSelection.SelectedIndex = 0; // Trigger selectie om modellen in te stellen
 
+            // Standaard API-sleutel en placeholder instellen
             txtApiKey.Text = "YOUR_GOOGLE_API_KEY_HERE";
             SetupApiKeyPlaceholder(txtApiKey, "YOUR_GOOGLE_API_KEY_HERE");
-            txtApiKey.UseSystemPasswordChar = true;
+            txtApiKey.UseSystemPasswordChar = true; // Verberg de API-sleutel
 
+            // Standaard map-paden instellen
             string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
             string documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
 
             txtSourceFolder.Text = Path.Combine(desktopPath, "AI Organizer Bronmap");
             txtDestinationFolder.Text = Path.Combine(documentsPath, "AI Organizer Resultaat");
 
+            // UI-elementen initialiseren
             lblTokensUsed.Text = "Tokens gebruikt: 0";
             progressBar1.Minimum = 0;
             progressBar1.Value = 0;
-            progressBar1.Style = ProgressBarStyle.Continuous;
-            progressBar1.Visible = false;
-            btnStopOrganization.Enabled = false;
-            btnSaveLog.Enabled = false;
-            chkRenameFiles.Checked = false; // Default: not checked
+            progressBar1.Style = ProgressBarStyle.Continuous; // Voortgangsbalk toont continue voortgang
+            progressBar1.Visible = false; // Verberg de voortgangsbalk initieel
+            btnStopOrganization.Enabled = false; // Stop-knop is initieel uitgeschakeld
+            btnSaveLog.Enabled = false; // Opslaan-knop is initieel uitgeschakeld
+            chkRenameFiles.Checked = false; // Bestanden standaard niet hernoemen
 
-            // Always start with Azure fields hidden
+            // Azure velden initieel verbergen
             lblAzureEndpoint.Visible = false;
             txtAzureEndpoint.Visible = false;
         }
 
+        /// <summary>
+        /// Update de beschikbare modellen op basis van de geselecteerde AI-provider.
+        /// </summary>
         private void cmbProviderSelection_SelectedIndexChanged(object sender, EventArgs e)
         {
             cmbModelSelection.Items.Clear();
@@ -126,7 +147,6 @@ namespace AI_FileOrganizer2
                     "gemini-2.0-flash-lite-001"
                 });
                 lblApiKey.Text = "Google API Key:";
-                // Hide Azure endpoint fields if present
                 lblAzureEndpoint.Visible = false;
                 txtAzureEndpoint.Visible = false;
             }
@@ -149,21 +169,24 @@ namespace AI_FileOrganizer2
             {
                 cmbModelSelection.Items.AddRange(new object[]
                 {
-                    "YOUR-AZURE-DEPLOYMENT-NAME"
+                    "YOUR-AZURE-DEPLOYMENT-NAME" // Azure deployment names are custom
                 });
                 lblApiKey.Text = "Azure OpenAI API Key:";
                 lblAzureEndpoint.Visible = true;
                 txtAzureEndpoint.Visible = true;
             }
-            cmbModelSelection.SelectedIndex = 0;
+            cmbModelSelection.SelectedIndex = 0; // Selecteer altijd het eerste item in de lijst
         }
 
+        /// <summary>
+        /// Stelt een placeholdertekst in voor een TextBox en beheert de kleur.
+        /// </summary>
         private void SetupApiKeyPlaceholder(TextBox textBox, string placeholderText)
         {
             textBox.GotFocus -= RemoveApiKeyPlaceholderInternal;
             textBox.LostFocus -= AddApiKeyPlaceholderInternal;
 
-            textBox.Tag = placeholderText;
+            textBox.Tag = placeholderText; // Sla de placeholder op in de Tag-eigenschap
 
             if (string.IsNullOrWhiteSpace(textBox.Text) || textBox.Text == placeholderText)
             {
@@ -179,6 +202,9 @@ namespace AI_FileOrganizer2
             textBox.LostFocus += AddApiKeyPlaceholderInternal;
         }
 
+        /// <summary>
+        /// Verwijdert de placeholdertekst wanneer de TextBox focus krijgt.
+        /// </summary>
         private void RemoveApiKeyPlaceholderInternal(object sender, EventArgs e)
         {
             TextBox textBox = sender as TextBox;
@@ -190,6 +216,9 @@ namespace AI_FileOrganizer2
             }
         }
 
+        /// <summary>
+        /// Voegt de placeholdertekst toe wanneer de TextBox focus verliest en leeg is.
+        /// </summary>
         private void AddApiKeyPlaceholderInternal(object sender, EventArgs e)
         {
             TextBox textBox = sender as TextBox;
@@ -201,11 +230,14 @@ namespace AI_FileOrganizer2
             }
         }
 
+        /// <summary>
+        /// Handelt het klikken op de "Bronmap selecteren" knop af, met een modern dialoogvenster.
+        /// </summary>
         private void btnSelectSourceFolder_Click(object sender, EventArgs e)
         {
             using (var dialog = new CommonOpenFileDialog())
             {
-                dialog.IsFolderPicker = true; // Essentieel: maakt het een map-selectie dialoogvenster
+                dialog.IsFolderPicker = true; // Cruciaal: maakt dit een map-selectie dialoogvenster
                 dialog.Title = "Selecteer de bronmap met bestanden (inclusief submappen)";
 
                 // Stel de initiële map in als de huidige tekst in het tekstveld, indien geldig
@@ -221,18 +253,21 @@ namespace AI_FileOrganizer2
 
                 if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
                 {
-                    txtSourceFolder.Text = dialog.FileName; // FileName bevat hier de geselecteerde map
+                    txtSourceFolder.Text = dialog.FileName; // FileName bevat hier het volledige pad naar de geselecteerde map
                 }
             }
         }
 
+        /// <summary>
+        /// Handelt het klikken op de "Doelmap selecteren" knop af, met een modern dialoogvenster.
+        /// </summary>
         private void btnSelectDestinationFolder_Click(object sender, EventArgs e)
         {
             using (var dialog = new CommonOpenFileDialog())
             {
-                dialog.IsFolderPicker = true; // Essentieel: maakt het een map-selectie dialoogvenster
+                dialog.IsFolderPicker = true; // Cruciaal: maakt dit een map-selectie dialoogvenster
                 dialog.Title = "Selecteer de doelmap voor geordende bestanden";
-                dialog.EnsurePathExists = true; // Zorgt dat de map bestaat als je de naam in typt
+                dialog.EnsurePathExists = true; // Zorgt dat de map bestaat als je de naam in typt, of helpt met aanmaken
 
                 // Stel de initiële map in als de huidige tekst in het tekstveld, indien geldig
                 if (Directory.Exists(txtDestinationFolder.Text))
@@ -247,17 +282,20 @@ namespace AI_FileOrganizer2
 
                 if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
                 {
-                    txtDestinationFolder.Text = dialog.FileName; // FileName bevat hier de geselecteerde map
+                    txtDestinationFolder.Text = dialog.FileName; // FileName bevat hier het volledige pad naar de geselecteerde map
                 }
             }
         }
 
+        /// <summary>
+        /// Start het organisatieproces van bestanden.
+        /// </summary>
         private async void btnStartOrganization_Click(object sender, EventArgs e)
         {
-            rtbLog.Clear();
-            SetUiEnabled(false);
-            btnStopOrganization.Enabled = true;
-            btnSaveLog.Enabled = false;
+            rtbLog.Clear(); // Maak het logvenster leeg
+            SetUiEnabled(false); // Schakel UI-elementen uit tijdens verwerking
+            btnStopOrganization.Enabled = true; // Schakel de stop-knop in
+            btnSaveLog.Enabled = false; // Schakel de opslaan-log-knop uit
 
             string apiKey = txtApiKey.Text;
             if (string.IsNullOrWhiteSpace(apiKey) || apiKey == txtApiKey.Tag.ToString())
@@ -294,8 +332,8 @@ namespace AI_FileOrganizer2
             }
 
             _totalTokensUsed = 0;
-            UpdateTokensUsedLabel();
-            _cancellationTokenSource = new CancellationTokenSource();
+            UpdateTokensUsedLabel(); // Reset en update de token-teller
+            _cancellationTokenSource = new CancellationTokenSource(); // Initialiseer CancellationTokenSource
 
             try
             {
@@ -312,31 +350,37 @@ namespace AI_FileOrganizer2
             finally
             {
                 _logger.Log("\nOrganisatie voltooid!");
-                SetUiEnabled(true);
-                btnStopOrganization.Enabled = false;
-                btnSaveLog.Enabled = true;
-                _cancellationTokenSource.Dispose();
+                SetUiEnabled(true); // Schakel UI-elementen weer in
+                btnStopOrganization.Enabled = false; // Schakel de stop-knop uit
+                btnSaveLog.Enabled = true; // Schakel de opslaan-log-knop in
+                _cancellationTokenSource.Dispose(); // Ruim de CancellationTokenSource op
                 _cancellationTokenSource = null;
             }
         }
 
+        /// <summary>
+        /// Annuleert het lopende organisatieproces.
+        /// </summary>
         private void btnStopOrganization_Click(object sender, EventArgs e)
         {
-            _cancellationTokenSource?.Cancel();
+            _cancellationTokenSource?.Cancel(); // Vraag om annulering
             _logger.Log("Annulering aangevraagd...");
-            btnStopOrganization.Enabled = false;
+            btnStopOrganization.Enabled = false; // Schakel de stop-knop uit om dubbelklikken te voorkomen
         }
 
+        /// <summary>
+        /// Slaat de inhoud van het logvenster op in een tekstbestand, met een modern dialoogvenster.
+        /// </summary>
         private void btnSaveLog_Click(object sender, EventArgs e)
         {
-            using (var dialog = new CommonSaveFileDialog()) // Gebruik CommonSaveFileDialog
+            using (var dialog = new CommonSaveFileDialog()) // Gebruik CommonSaveFileDialog voor een moderne UI
             {
                 // Voeg filters toe op de modernere manier
                 dialog.Filters.Add(new CommonFileDialogFilter("Tekstbestanden", "*.txt"));
                 dialog.DefaultExtension = "txt"; // Stel de standaardextensie in
 
                 dialog.Title = "Sla logbestand op";
-                // DE OPLOSSING: Gebruik DefaultFileName in plaats van FileName
+                // Gebruik DefaultFileName om de voorgestelde bestandsnaam in te stellen
                 dialog.DefaultFileName = $"AI_Organizer_Log_{DateTime.Now:yyyyMMdd_HHmmss}.txt";
 
                 // Optioneel: Stel de initiële map in
@@ -367,6 +411,11 @@ namespace AI_FileOrganizer2
                 }
             }
         }
+
+        /// <summary>
+        /// Schakelt de gebruikersinterface-elementen in of uit.
+        /// </summary>
+        /// <param name="enabled">True om in te schakelen, False om uit te schakelen.</param>
         private void SetUiEnabled(bool enabled)
         {
             txtApiKey.Enabled = enabled;
@@ -375,24 +424,31 @@ namespace AI_FileOrganizer2
             txtDestinationFolder.Enabled = enabled;
             btnSelectDestinationFolder.Enabled = enabled;
             cmbModelSelection.Enabled = enabled;
-            cmbProviderSelection.Enabled = enabled; // Enable/disable provider selection too
-            txtAzureEndpoint.Enabled = enabled; // Enable/disable Azure endpoint field
+            cmbProviderSelection.Enabled = enabled;
+            txtAzureEndpoint.Enabled = enabled;
             btnStartOrganization.Enabled = enabled;
-            btnSaveLog.Enabled = enabled;
+            // btnSaveLog.Enabled = enabled; // Deze wordt apart beheerd (aangezet in finally van OrganizeFilesAsync)
             linkLabelAuthor.Enabled = enabled;
             chkRenameFiles.Enabled = enabled;
         }
 
+        /// <summary>
+        /// Werkt het label voor het aantal gebruikte tokens bij.
+        /// </summary>
         private void UpdateTokensUsedLabel()
         {
             if (InvokeRequired)
             {
+                // BeginInvoke om thread-safe updates naar de UI toe te staan
                 BeginInvoke(new Action(UpdateTokensUsedLabel));
                 return;
             }
             lblTokensUsed.Text = $"Tokens gebruikt: {_totalTokensUsed}";
         }
 
+        /// <summary>
+        /// De hoofdlogica voor het organiseren van bestanden.
+        /// </summary>
         private async Task OrganizeFilesAsync(string sourcePath, string destinationBasePath, string apiKey, CancellationToken cancellationToken)
         {
             int processedFiles = 0;
@@ -402,10 +458,10 @@ namespace AI_FileOrganizer2
 
             string selectedModel = cmbModelSelection.SelectedItem?.ToString() ?? "gemini-1.5-pro-latest";
             bool shouldRenameFiles = chkRenameFiles.Checked;
-            string providerName = cmbProviderSelection.SelectedItem?.ToString() ?? "Gemini (Google)"; // Renamed to avoid conflict with `provider` parameter type.
+            string providerName = cmbProviderSelection.SelectedItem?.ToString() ?? "Gemini (Google)";
             string azureEndpoint = txtAzureEndpoint?.Text;
 
-            // Instantiate the correct AI provider based on selection
+            // Instantieer de juiste AI provider op basis van de gebruikersselectie
             IAiProvider currentAiProvider = null;
             try
             {
@@ -422,16 +478,17 @@ namespace AI_FileOrganizer2
                         break;
                     default:
                         _logger.Log($"FOUT: Onbekende AI-provider geselecteerd: {providerName}. Annuleer organisatie.");
-                        return; // Stop the organization
+                        return; // Stop de organisatie als provider onbekend is
                 }
             }
-            catch (ArgumentException ex) // Catch specific exceptions from provider constructors
+            catch (ArgumentException ex) // Vang specifieke exceptions van provider constructors (bijv. ongeldige Azure endpoint)
             {
                 _logger.Log($"FOUT: Configuratieprobleem voor AI-provider '{providerName}': {ex.Message}. Annuleer organisatie.");
                 return;
             }
 
 
+            // Verzamel alle ondersteunde bestanden in de bronmap en submappen
             var allFiles = Directory.EnumerateFiles(sourcePath, "*", SearchOption.AllDirectories)
                                     .Where(f => SUPPORTED_EXTENSIONS.Contains(Path.GetExtension(f).ToLower()))
                                     .ToList();
@@ -445,7 +502,7 @@ namespace AI_FileOrganizer2
                 if (cancellationToken.IsCancellationRequested)
                 {
                     progressBar1.Visible = false;
-                    cancellationToken.ThrowIfCancellationRequested();
+                    cancellationToken.ThrowIfCancellationRequested(); // Gooi uitzondering om de lus te beëindigen
                 }
 
                 var fileInfo = new FileInfo(filePath);
@@ -453,71 +510,22 @@ namespace AI_FileOrganizer2
                 processedFiles++;
                 _logger.Log($"\n[BESTAND] Verwerken van: {fileInfo.Name} (locatie: {Path.GetDirectoryName(filePath)})");
 
-                // In a real application, you'd extract text from the file here.
-                // For this example, we'll use the file path as a placeholder,
-                // but you should replace this with actual text extraction logic.
-                string extractedText = "Dummy text for demonstration. In a real app, extract content from: " + fileInfo.FullName;
-                // TODO: Implement actual text extraction based on file type
-                // Example for PDF:
-                // try
-                // {
-                //     using (PdfDocument document = PdfDocument.Open(filePath))
-                //     {
-                //         extractedText = string.Join(Environment.NewLine, document.GetPages().Select(p => p.Text));
-                //     }
-                // }
-                // catch (Exception ex)
-                // {
-                //     _logger.Log($"WAARSCHUWING: Kon geen tekst extraheren uit PDF {fileInfo.Name}: {ex.Message}");
-                //     extractedText = fileInfo.Name; // Or use file name/path as fallback context
-                // }
-                // Example for DOCX:
-                // else if (fileInfo.Extension.ToLower() == ".docx")
-                // {
-                //     try
-                //     {
-                //         using (WordprocessingDocument wordDoc = WordprocessingDocument.Open(filePath, false))
-                //         {
-                //             extractedText = wordDoc.MainDocumentPart.Document.Body.InnerText;
-                //         }
-                //     }
-                //     catch (Exception ex)
-                //     {
-                //         _logger.Log($"WAARSCHUWING: Kon geen tekst extraheren uit DOCX {fileInfo.Name}: {ex.Message}");
-                //         extractedText = fileInfo.Name; // Fallback
-                //     }
-                // }
-                // Example for TXT/MD:
-                // else if (fileInfo.Extension.ToLower() == ".txt" || fileInfo.Extension.ToLower() == ".md")
-                // {
-                //     try
-                //     {
-                //         extractedText = File.ReadAllText(filePath);
-                //     }
-                //     catch (Exception ex)
-                //     {
-                //         _logger.Log($"WAARSCHUWING: Kon geen tekst extraheren uit TXT/MD {fileInfo.Name}: {ex.Message}");
-                //         extractedText = fileInfo.Name; // Fallback
-                //     }
-                // }
+                // *** Hier wordt de TextExtractionService gebruikt ***
+                string extractedText = _textExtractionService.ExtractText(filePath);
 
-
-                if (string.IsNullOrWhiteSpace(extractedText) || extractedText.StartsWith("Dummy text")) // Check for actual extracted content vs. placeholder
+                if (string.IsNullOrWhiteSpace(extractedText))
                 {
-                    _logger.Log($"INFO: Geen zinvolle tekst geëxtraheerd uit {fileInfo.Name}. Bestand wordt behandeld met bestandsnaam context.");
-                    // For now, let's proceed with a default fallback to avoid stopping
-                    extractedText = fileInfo.Name; // Use file name as a minimal context
+                    _logger.Log($"INFO: Geen zinvolle tekst geëxtraheerd uit {fileInfo.Name}. Bestand wordt behandeld met bestandsnaam context (als fallback).");
+                    extractedText = fileInfo.Name; // Gebruik bestandsnaam als minimale context
                 }
 
-                // If text is too long for LLM, truncate it
+                // Tronqueer tekst als deze te lang is voor de LLM
                 if (extractedText.Length > MAX_TEXT_LENGTH_FOR_LLM)
                 {
                     _logger.Log($"WAARSCHUWING: Tekstlengte voor '{fileInfo.Name}' overschrijdt {MAX_TEXT_LENGTH_FOR_LLM} tekens. Tekst wordt afgekapt.");
                     extractedText = extractedText.Substring(0, MAX_TEXT_LENGTH_FOR_LLM);
                 }
 
-
-                // All AI calls should now use the 'currentAiProvider' instance
                 string llmCategoryChoice = await _aiService.ClassifyCategoryAsync(
                     extractedText,
                     FOLDER_CATEGORIES.Keys.ToList(),
@@ -534,28 +542,29 @@ namespace AI_FileOrganizer2
                         ? FOLDER_CATEGORIES[llmCategoryChoice]
                         : FALLBACK_FOLDER_NAME;
                     string targetCategoryFolderPath = Path.Combine(destinationBasePath, targetCategoryFolderName);
-                    Directory.CreateDirectory(targetCategoryFolderPath);
+                    Directory.CreateDirectory(targetCategoryFolderPath); // Zorg dat de categoriemap bestaat
 
                     string finalDestinationFolderPath = targetCategoryFolderPath;
 
                     _logger.Log($"INFO: Poging tot genereren submapnaam voor '{fileInfo.Name}'...");
 
+                    // *** Correcte aanroep naar AiClassificationService.SuggestSubfolderNameAsync ***
                     string subfolderNameSuggestion = await _aiService.SuggestSubfolderNameAsync(
                         extractedText,
                         fileInfo.Name,
-                        currentAiProvider, // Pass the IAiProvider instance
+                        currentAiProvider, // De IAiProvider instantie
                         selectedModel,
                         cancellationToken
                     );
 
                     if (!string.IsNullOrWhiteSpace(subfolderNameSuggestion))
                     {
-                        // Sanitize and validate subfolder name
+                        // Sanitize en valideer de voorgestelde submapnaam
                         subfolderNameSuggestion = FileUtils.SanitizeFolderOrFileName(subfolderNameSuggestion);
                         if (subfolderNameSuggestion.Length < MIN_SUBFOLDER_NAME_LENGTH || subfolderNameSuggestion.Length > MAX_SUBFOLDER_NAME_LENGTH)
                         {
                             _logger.Log($"WAARSCHUWING: AI-gegenereerde submapnaam '{subfolderNameSuggestion}' is ongeldig (lengte). Wordt niet gebruikt.");
-                            subfolderNameSuggestion = null; // Invalidate the suggestion
+                            subfolderNameSuggestion = null; // Ongeldige suggestie
                         }
                     }
 
@@ -573,11 +582,11 @@ namespace AI_FileOrganizer2
 
                     try
                     {
-                        // Reconstruct the relative path from the original source structure
+                        // Herbouw het relatieve pad van de originele bronstructuur
                         string relativePathFromSource = GetRelativePath(sourcePath, Path.GetDirectoryName(filePath));
-                        // This ensures that if files were already in subfolders in the source, those subfolders are recreated under the new category/subfolder
+                        // Dit zorgt ervoor dat als bestanden al in submappen stonden in de bron, die submappen worden gerecreëerd onder de nieuwe categorie/submap
                         string finalTargetDirectory = Path.Combine(finalDestinationFolderPath, relativePathFromSource);
-                        Directory.CreateDirectory(finalTargetDirectory);
+                        Directory.CreateDirectory(finalTargetDirectory); // Zorg dat de volledige doelmapstructuur bestaat
 
                         string newFileName = fileInfo.Name; // Standaard de originele naam
 
@@ -585,16 +594,16 @@ namespace AI_FileOrganizer2
                         {
                             _logger.Log($"INFO: AI-bestandsnaam genereren voor '{fileInfo.Name}'...");
 
+                            // *** Correcte aanroep naar AiClassificationService.SuggestFileNameAsync ***
                             string suggestedNewBaseName = await _aiService.SuggestFileNameAsync(
                                 extractedText,
                                 fileInfo.Name,
-                                currentAiProvider, // Pass the IAiProvider instance
+                                currentAiProvider, // De IAiProvider instantie
                                 selectedModel,
                                 cancellationToken
                             );
 
-                            // Voeg een dialoogvenster in om de naam te bevestigen/wijzigen
-                            // Pass only the suggested *base name* and let the form manage the extension initially
+                            // Toon dialoogvenster om naam te bevestigen/wijzigen
                             using (var renameForm = new FormRenameFile(fileInfo.Name, suggestedNewBaseName + fileInfo.Extension))
                             {
                                 if (renameForm.ShowDialog() == DialogResult.OK)
@@ -602,7 +611,7 @@ namespace AI_FileOrganizer2
                                     if (renameForm.SkipFile)
                                     {
                                         _logger.Log($"INFO: Gebruiker koos om '{fileInfo.Name}' niet te hernoemen. Bestand wordt verplaatst met originele naam.");
-                                        // newFileName remains fileInfo.Name
+                                        // newFileName blijft de originele naam
                                     }
                                     else
                                     {
@@ -610,20 +619,20 @@ namespace AI_FileOrganizer2
                                         string proposedBaseName = Path.GetFileNameWithoutExtension(proposedFullName);
                                         string proposedExtension = Path.GetExtension(proposedFullName);
 
-                                        // Ensure the file extension is preserved or correctly handled
+                                        // Zorg ervoor dat de extensie behouden blijft of correct wordt afgehandeld
                                         if (string.IsNullOrEmpty(proposedExtension))
                                         {
-                                            proposedFullName = proposedBaseName + fileInfo.Extension; // Add original extension if user removed it
+                                            proposedFullName = proposedBaseName + fileInfo.Extension; // Voeg originele extensie toe als gebruiker deze verwijderde
                                         }
                                         else if (proposedExtension.ToLower() != fileInfo.Extension.ToLower())
                                         {
                                             _logger.Log($"WAARSCHUWING: Bestandsnaam '{proposedFullName}' heeft afwijkende extensie. Originele extensie '{fileInfo.Extension}' wordt behouden.");
-                                            proposedFullName = proposedBaseName + fileInfo.Extension; // Force original extension
+                                            proposedFullName = proposedBaseName + fileInfo.Extension; // Forceer originele extensie
                                         }
 
-                                        newFileName = FileUtils.SanitizeFileName(proposedFullName); // Sanitize the confirmed new name
+                                        newFileName = FileUtils.SanitizeFileName(proposedFullName); // Sanitize de bevestigde nieuwe naam
 
-                                        // Apply max length constraint
+                                        // Pas maximale lengtebeperking toe
                                         string baseNameWithoutExt = Path.GetFileNameWithoutExtension(newFileName);
                                         string extension = Path.GetExtension(newFileName);
                                         if (baseNameWithoutExt.Length > MAX_FILENAME_LENGTH)
@@ -647,23 +656,23 @@ namespace AI_FileOrganizer2
                                 }
                                 else
                                 {
-                                    // User cancelled the rename dialog
+                                    // Gebruiker annuleerde het hernoem-dialoogvenster
                                     _logger.Log($"INFO: Hernoem-actie voor '{fileInfo.Name}' geannuleerd door gebruiker. Bestand wordt overgeslagen.");
                                     progressBar1.Increment(1);
-                                    continue; // Skip to the next file
+                                    continue; // Ga naar het volgende bestand
                                 }
                             }
                         }
 
                         string destinationFilePath = Path.Combine(finalTargetDirectory, newFileName);
 
-                        // Handle existing file names in destination folder
+                        // Afhandeling bestaande bestandsnamen in doelmap
                         if (File.Exists(destinationFilePath))
                         {
                             string baseName = Path.GetFileNameWithoutExtension(newFileName);
                             string extension = Path.GetExtension(newFileName);
                             int counter = 1;
-                            string uniqueDestinationFilePath = destinationFilePath; // Initialize
+                            string uniqueDestinationFilePath = destinationFilePath;
                             while (File.Exists(uniqueDestinationFilePath))
                             {
                                 uniqueDestinationFilePath = Path.Combine(finalTargetDirectory, $"{baseName}_{counter}{extension}");
@@ -673,6 +682,7 @@ namespace AI_FileOrganizer2
                             destinationFilePath = uniqueDestinationFilePath;
                         }
 
+                        // Verplaats het bestand
                         File.Move(filePath, destinationFilePath);
 
                         _logger.Log($"OK: '{fileInfo.Name}' verplaatst naar '{GetRelativePath(destinationBasePath, destinationFilePath)}'");
@@ -687,31 +697,37 @@ namespace AI_FileOrganizer2
                 {
                     _logger.Log($"WAARSCHUWING: Kon '{fileInfo.Name}' niet classificeren met AI (retourneerde leeg of None). Wordt niet verplaatst.");
                 }
-                progressBar1.Increment(1);
+                progressBar1.Increment(1); // Verhoog de voortgangsbalk voor elk verwerkt bestand
             }
 
-            progressBar1.Visible = false;
+            progressBar1.Visible = false; // Verberg de voortgangsbalk na voltooiing
 
+            // Samenvattingslogberichten
             _logger.Log($"\nTotaal aantal bestanden bekeken (met ondersteunde extensie): {processedFiles}");
             _logger.Log($"Aantal bestanden succesvol verplaatst: {movedFiles}");
             _logger.Log($"Aantal bestanden geplaatst in een AI-gegenereerde submap: {filesWithSubfolders}");
             _logger.Log($"Aantal bestanden hernoemd: {renamedFiles}");
         }
 
-
+        /// <summary>
+        /// Berekent het relatieve pad van een volledig pad ten opzichte van een basispad.
+        /// </summary>
         private string GetRelativePath(string basePath, string fullPath)
         {
             string baseWithSeparator = AppendDirectorySeparatorChar(basePath);
             Uri baseUri = new Uri(baseWithSeparator);
             Uri fullUri = new Uri(fullPath);
 
-            // MakeRelativeUri will return a URI representing the relative path
+            // MakeRelativeUri geeft een URI terug die het relatieve pad vertegenwoordigt
             Uri relativeUri = baseUri.MakeRelativeUri(fullUri);
 
-            // Convert the URI path (which uses '/') to the system's directory separator
+            // Converteer het URI-pad (dat '/' gebruikt) naar de directory-scheider van het systeem
             return Uri.UnescapeDataString(relativeUri.ToString().Replace('/', Path.DirectorySeparatorChar));
         }
 
+        /// <summary>
+        /// Zorgt ervoor dat een pad eindigt met een directory-scheidingsteken.
+        /// </summary>
         private string AppendDirectorySeparatorChar(string path)
         {
             if (!string.IsNullOrEmpty(path) && !path.EndsWith(Path.DirectorySeparatorChar.ToString()))
@@ -719,6 +735,9 @@ namespace AI_FileOrganizer2
             return path;
         }
 
+        /// <summary>
+        /// Opent de LinkedIn-pagina van de auteur in de standaardbrowser.
+        /// </summary>
         private void linkLabelAuthor_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
             try
@@ -735,6 +754,5 @@ namespace AI_FileOrganizer2
                 MessageBox.Show($"Kan link niet openen: {ex.Message}", "Fout", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-
     }
 }
