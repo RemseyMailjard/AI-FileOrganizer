@@ -256,6 +256,16 @@
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Services\AiClassificationService.cs" />
+    <Compile Include="Services\AzureOpenAiProvider.cs" />
+    <Compile Include="Services\GeminiAiProvider.cs" />
+    <Compile Include="Services\IaProvider.cs" />
+    <Compile Include="Services\OpenAiProvider.cs" />
+    <Compile Include="Services\TextExtractionService.cs" />
+    <Compile Include="Utils\FileLogger.cs" />
+    <Compile Include="Utils\FileUtil.cs" />
+    <Compile Include="Utils\ILogger.cs" />
+    <Compile Include="Utils\UiLogger.cs" />
     <EmbeddedResource Include="Form1.resx">
       <DependentUpon>Form1.cs</DependentUpon>
     </EmbeddedResource>
@@ -301,6 +311,9 @@
       <ProductName>.NET Framework 3.5 SP1</ProductName>
       <Install>false</Install>
     </BootstrapperPackage>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Models\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
