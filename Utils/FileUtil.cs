@@ -69,5 +69,23 @@ namespace AI_FileOrganizer2.Utils
                 return path + Path.DirectorySeparatorChar;
             return path;
         }
+
+        public static string FallbackFolderNameFromFilename(string filename)
+        {
+            filename = filename.ToLowerInvariant();
+
+            if (filename.Contains("factuur")) return "Factuur";
+            if (filename.Contains("offerte")) return "Offerte";
+            if (filename.Contains("polis") || filename.Contains("verzekering")) return "Polis";
+            if (filename.Contains("cv") || filename.Contains("curriculum")) return "CV";
+            if (filename.Contains("notulen")) return "Notulen";
+            if (filename.Contains("handleiding") || filename.Contains("manual")) return "Handleiding";
+            if (filename.Contains("rapport") || filename.Contains("report")) return "Rapport";
+            if (filename.Contains("budget") || filename.Contains("begroting")) return "Budget";
+            if (filename.Contains("jaaropgave") || filename.Contains("jaaroverzicht")) return "Jaaropgave";
+
+            return null;
+        }
+     
     }
 }

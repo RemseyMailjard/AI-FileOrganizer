@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO; // Nodig voor Path.GetFileNameWithoutExtension
 using System.Linq;
 using System.Threading;
@@ -39,172 +40,276 @@ namespace AI_FileOrganizer2.Services
 
         // ======= Publieke AI-methodes =======
 
-        public async Task<string> ClassifyCategoryAsync(
-            string textToClassify,
-            List<string> categories,
-            IAiProvider aiProvider, // Hier wordt ALLEEN de IAiProvider doorgegeven
-            string modelName,
-            CancellationToken cancellationToken)
+       public async Task<string> ClassifyCategoryAsync(
+    string textToClassify,
+    List<string> categories,
+    IAiProvider aiProvider,
+    string modelName,
+    CancellationToken cancellationToken)
+{
+    if (string.IsNullOrWhiteSpace(textToClassify))
+    {
+        _logger.Log("WAARSCHUWING: Geen tekst om te classificeren. Retourneer fallback categorie.");
+        return DEFAULT_FALLBACK_CATEGORY;
+    }
+
+    if (aiProvider == null)
+    {
+        _logger.Log("FOUT: AI-provider is null voor categorieclassificatie.");
+        return DEFAULT_FALLBACK_CATEGORY;
+    }
+
+    if (string.IsNullOrWhiteSpace(modelName))
+    {
+        _logger.Log("FOUT: Modelnaam is leeg voor categorieclassificatie.");
+        return DEFAULT_FALLBACK_CATEGORY;
+    }
+
+    var validCategories = new List<string>(categories) { DEFAULT_FALLBACK_CATEGORY };
+    var categoryListForPrompt = string.Join("\n- ", categories);
+
+    var fewShotExamples = @"
+Voorbeeld 1:
+Tekst: 'Ik heb mijn autoverzekering aangepast bij Interpolis.'
+Categorie: Verzekeringen
+
+Voorbeeld 2:
+Tekst: 'Onze zomervakantie naar Spanje is geboekt.'
+Categorie: Reizen en vakanties
+
+Voorbeeld 3:
+Tekst: 'Ik heb mijn salaris ontvangen en overgemaakt naar mijn spaarrekening.'
+Categorie: Financiën
+
+Voorbeeld 4:
+Tekst: 'De belastingaangifte voor 2022 is binnen.'
+Categorie: Belastingen
+";
+
+    var prompt = $@"
+Je bent een AI-classificatiemodel. Je taak is om tekstfragmenten te classificeren in één van de exact opgegeven categorieën.
+Geef uitsluitend de exacte categorienaam terug (hoofdlettergevoelig). Gebruik de fallbackcategorie als geen enkele andere categorie duidelijk past.
+
+Je krijgt een tekst en een lijst met mogelijke categorieën. Kies exact één van de volgende categorieën:
+
+<categories>
+- {categoryListForPrompt}
+- {DEFAULT_FALLBACK_CATEGORY} (gebruik deze als geen enkele andere categorie duidelijk past)
+</categories>
+
+Regels:
+- Retourneer exact één categorie uit bovenstaande lijst, niets anders.
+- Geen uitleg, geen nummering, geen opmaak.
+- Als meerdere categorieën mogelijk zijn: kies de meest specifieke.
+- Gebruik de fallbackcategorie alleen als echt niets past.
+
+{fewShotExamples}
+
+Tekst om te classificeren:
+<tekst>
+{textToClassify.Substring(0, Math.Min(textToClassify.Length, 8000))}
+</tekst>
+
+Categorie:";
+
+    string chosenCategory = null;
+
+    try
+    {
+        chosenCategory = await aiProvider.GetTextCompletionAsync(
+            prompt,
+            modelName,
+            CATEGORY_MAX_TOKENS,
+            CATEGORY_TEMPERATURE,
+            cancellationToken
+        );
+    }
+    catch (OperationCanceledException)
+    {
+        _logger.Log("INFO: Categorieclassificatie geannuleerd.");
+        throw;
+    }
+    catch (Exception ex)
+    {
+        _logger.Log($"FOUT: Fout bij classificatie AI-aanroep: {ex.Message}");
+        return DEFAULT_FALLBACK_CATEGORY;
+    }
+
+    if (string.IsNullOrWhiteSpace(chosenCategory))
+    {
+        _logger.Log("WAARSCHUWING: AI retourneerde geen bruikbare categorie. Val terug op default.");
+        return DEFAULT_FALLBACK_CATEGORY;
+    }
+
+    chosenCategory = chosenCategory.Trim();
+
+    if (validCategories.Contains(chosenCategory))
+        return chosenCategory;
+
+    foreach (var validCat in validCategories)
+    {
+        if (validCat.Equals(chosenCategory, StringComparison.OrdinalIgnoreCase) ||
+            validCat.ToLowerInvariant().Contains(chosenCategory.ToLowerInvariant()) ||
+            chosenCategory.ToLowerInvariant().Contains(validCat.ToLowerInvariant()))
         {
-            if (string.IsNullOrWhiteSpace(textToClassify))
+            _logger.Log($"INFO: Gevonden categorie '{chosenCategory}' fuzzy-matched naar '{validCat}'.");
+            return validCat;
+        }
+    }
+
+    _logger.Log($"WAARSCHUWING: AI-gekozen categorie '{chosenCategory}' is niet valide en kon niet fuzzy-matched worden. Val terug op default.");
+    return DEFAULT_FALLBACK_CATEGORY;
+}
+
+
+
+
+public async Task<string> SuggestSubfolderNameAsync(
+    string textToAnalyze,
+    string originalFilename,
+    IAiProvider aiProvider,
+    string modelName,
+    CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(textToAnalyze))
+        {
+            _logger.Log($"WAARSCHUWING: Geen tekst om te analyseren voor submapnaam van '{originalFilename}'.");
+            return null;
+        }
+
+        if (aiProvider == null)
+        {
+            _logger.Log("FOUT: AI-provider is null voor submapnaam-suggestie.");
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(modelName))
+        {
+            _logger.Log("FOUT: Modelnaam is leeg voor submapnaam-suggestie.");
+            return null;
+        }
+
+        var prompt = $@"
+### SYSTEM INSTRUCTIE
+Je bent een AI-assistent die helpt bij het organiseren van documenten in logische mappen. 
+Je taak is om een **korte en beschrijvende submapnaam** te suggereren op basis van de documentinhoud en bestandsnaam.
+
+### INSTRUCTIES
+- Gebruik maximaal **5 woorden**
+- Vat het hoofdonderwerp of doel van het document bondig samen
+- Vermijd generieke termen zoals 'document', 'info', 'bestand' of alleen een datum
+- Gebruik bij voorkeur betekenisvolle termen zoals 'Belastingaangifte 2023' of 'CV Jan Jansen'
+- **Geef enkel de submapnaam terug – geen uitleg, geen opmaak, geen opsomming**
+
+### FEW-SHOT VOORBEELDEN
+<voorbeeld>
+Bestandsnaam: jaaropgave_2023_ing.pdf  
+Tekst: Dit document betreft uw jaarlijkse jaaropgave voor belastingdoeleinden...  
+Antwoord: Jaaropgave ING 2023
+</voorbeeld>
+
+<voorbeeld>
+Bestandsnaam: cv_jan.docx  
+Tekst: Curriculum Vitae van Jan Jansen met werkervaring in IT...  
+Antwoord: CV Jan Jansen
+</voorbeeld>
+
+<voorbeeld>
+Bestandsnaam: offerte_hypotheek_rabobank.pdf  
+Tekst: Geachte heer, hierbij ontvangt u uw hypotheekofferte...  
+Antwoord: Hypotheekofferte Rabobank
+</voorbeeld>
+
+### INPUT
+<bestandsnaam>
+{originalFilename}
+</bestandsnaam>
+
+<tekst>
+{textToAnalyze.Substring(0, Math.Min(textToAnalyze.Length, 2000))}
+</tekst>
+
+### OUTPUT
+Geef alleen de voorgestelde submapnaam:
+
+<output>";
+
+        string suggestedName = null;
+
+        try
+        {
+            suggestedName = await aiProvider.GetTextCompletionAsync(
+                prompt,
+                modelName,
+                SUBFOLDER_MAX_TOKENS,
+                SUBFOLDER_TEMPERATURE,
+                cancellationToken
+            );
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.Log($"INFO: Submapnaam AI-suggestie voor '{originalFilename}' geannuleerd.");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.Log($"FOUT: Fout bij submapnaam AI-aanroep voor '{originalFilename}': {ex.Message}");
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(suggestedName))
+        {
+            _logger.Log($"WAARSCHUWING: AI retourneerde geen bruikbare submapnaam voor '{originalFilename}'.");
+            return null;
+        }
+            // Trim, sanitize en validate
+            string cleaned = FileUtils.SanitizeFolderOrFileName(suggestedName?.Trim() ?? "");
+            var generiek = new[] { "document", "bestand", "info", "overig", "algemeen", "" };
+
+            bool retry = string.IsNullOrWhiteSpace(cleaned) || cleaned.Length < 3 || generiek.Contains(cleaned.ToLowerInvariant());
+            // Opschonen en valideren
+            if (retry)
             {
-                _logger.Log("WAARSCHUWING: Geen tekst om te classificeren. Retourneer fallback categorie.");
-                return DEFAULT_FALLBACK_CATEGORY;
-            }
+                _logger.Log($"INFO: Eerste AI-suggestie '{suggestedName}' was onbruikbaar. Start retry...");
 
-            if (aiProvider == null)
-            {
-                _logger.Log("FOUT: AI-provider is null voor categorieclassificatie.");
-                return DEFAULT_FALLBACK_CATEGORY;
-            }
-            if (string.IsNullOrWhiteSpace(modelName))
-            {
-                _logger.Log("FOUT: Modelnaam is leeg voor categorieclassificatie.");
-                return DEFAULT_FALLBACK_CATEGORY;
-            }
-
-            var categoryListForPrompt = string.Join("\n", categories.Select(cat => $"- {cat}"));
-            var prompt = $@"
-                Je bent een AI-assistent gespecialiseerd in het organiseren van documenten.
-                Jouw taak is om de volgende tekst te analyseren en te bepalen in welke van de onderstaande categorieën deze het beste past.
-
-                Beschikbare categorieën:
-                {categoryListForPrompt}
-                - {DEFAULT_FALLBACK_CATEGORY} (gebruik deze als geen andere categorie duidelijk past)
-
-                Geef ALLEEN de naam van de gekozen categorie terug, exact zoals deze in de lijst staat. Geen extra uitleg, nummers of opmaak.
-
-                Tekstfragment om te classificeren:
-                ---
-                {textToClassify.Substring(0, Math.Min(textToClassify.Length, 8000))}
-                ---
-
-                Categorie:";
-
-            string chosenCategory = null;
-
-            try
-            {
-                chosenCategory = await aiProvider.GetTextCompletionAsync(
-                    prompt,
-                    modelName,
-                    CATEGORY_MAX_TOKENS,
-                    CATEGORY_TEMPERATURE,
-                    cancellationToken
-                );
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.Log("INFO: Categorieclassificatie geannuleerd.");
-                throw; // Belangrijk om annulering door te geven
-            }
-            catch (Exception ex)
-            {
-                _logger.Log($"FOUT: Fout bij classificatie AI-aanroep: {ex.Message}");
-                return DEFAULT_FALLBACK_CATEGORY;
-            }
-
-            if (string.IsNullOrWhiteSpace(chosenCategory))
-            {
-                _logger.Log("WAARSCHUWING: AI retourneerde geen bruikbare categorie. Val terug op default.");
-                return DEFAULT_FALLBACK_CATEGORY;
-            }
-
-            var validCategories = new List<string>(categories) { DEFAULT_FALLBACK_CATEGORY };
-            chosenCategory = chosenCategory.Trim();
-
-            if (validCategories.Contains(chosenCategory))
-                return chosenCategory;
-
-            // Fuzzy match (kleine afwijkingen opvangen)
-            foreach (var validCat in validCategories)
-            {
-                if (validCat.ToLowerInvariant().Contains(chosenCategory.ToLowerInvariant()) || chosenCategory.ToLowerInvariant().Contains(validCat.ToLowerInvariant()))
+                var retryPrompt = prompt + "\nDenk goed na. Geef nu alsnog een concrete, bruikbare mapnaam – ook als je twijfelt.";
+                try
                 {
-                    _logger.Log($"INFO: Gevonden categorie '{chosenCategory}' fuzzy-matched naar '{validCat}'.");
-                    return validCat;
+                    suggestedName = await aiProvider.GetTextCompletionAsync(
+                        retryPrompt,
+                        modelName,
+                        SUBFOLDER_MAX_TOKENS,
+                        SUBFOLDER_TEMPERATURE,
+                        cancellationToken
+                    );
+
+                    cleaned = FileUtils.SanitizeFolderOrFileName(suggestedName?.Trim() ?? "");
+                }
+                catch (Exception ex)
+                {
+                    _logger.Log($"FOUT: Retry submapnaam faalde voor '{originalFilename}': {ex.Message}");
                 }
             }
-            _logger.Log($"WAARSCHUWING: AI-gekozen categorie '{chosenCategory}' is niet valide en kon niet fuzzy-matched worden. Val terug op default.");
-            return DEFAULT_FALLBACK_CATEGORY;
+
+            if (string.IsNullOrWhiteSpace(cleaned) || cleaned.Length < 3 || generiek.Contains(cleaned.ToLowerInvariant()))
+            {
+                // Als fallback werkt ook niet – gebruik bestandsnaam-pattern
+                _logger.Log($"INFO: AI faalde voor '{originalFilename}'. Probeer patroon-gebaseerde fallback...");
+
+                cleaned = FileUtils.FallbackFolderNameFromFilename(originalFilename);
+
+                if (string.IsNullOrWhiteSpace(cleaned))
+                {
+                    _logger.Log($"WAARSCHUWING: Geen bruikbare submapnaam gevonden. '{originalFilename}' blijft in hoofdmap.");
+                    return null;
+                }
+            }
+
+            // Zet naar title case
+            return CultureInfo.CurrentCulture.TextInfo.ToTitleCase(cleaned.ToLowerInvariant());
         }
 
-        public async Task<string> SuggestSubfolderNameAsync(
-            string textToAnalyze,
-            string originalFilename,
-            IAiProvider aiProvider, // Hier wordt de AI-provider nu doorgegeven
-            string modelName,
-            CancellationToken cancellationToken)
-        {
-            if (string.IsNullOrWhiteSpace(textToAnalyze))
-            {
-                _logger.Log($"WAARSCHUWING: Geen tekst om te analyseren voor submapnaam van '{originalFilename}'.");
-                return null;
-            }
-            if (aiProvider == null)
-            {
-                _logger.Log("FOUT: AI-provider is null voor submapnaam-suggestie.");
-                return null;
-            }
-            if (string.IsNullOrWhiteSpace(modelName))
-            {
-                _logger.Log("FOUT: Modelnaam is leeg voor submapnaam-suggestie.");
-                return null;
-            }
-
-            var prompt = $@"
-Je bent een AI-assistent die helpt bij het organiseren van bestanden.
-Analyseer de volgende tekst van een document (oorspronkelijke bestandsnaam: ""{originalFilename}"") en stel een KORTE, BESCHRIJVENDE submapnaam voor (maximaal 5 woorden).
-Deze submapnaam moet het hoofdonderwerp of de essentie van het document samenvatten.
-Voorbeelden: ""Belastingaangifte 2023"", ""Hypotheekofferte Rabobank"", ""Notulen vergadering Project X"", ""CV Jan Jansen"".
-Vermijd generieke namen zoals ""Document"", ""Bestand"", ""Info"" of simpelweg een datum zonder context.
-Geef ALLEEN de voorgestelde submapnaam terug, zonder extra uitleg of opmaak.
-
-Tekstfragment:
----
-{textToAnalyze.Substring(0, Math.Min(textToAnalyze.Length, 2000))}
----
-
-Voorgestelde submapnaam:";
-
-            string suggestedName = null;
-            try
-            {
-                suggestedName = await aiProvider.GetTextCompletionAsync(
-                    prompt,
-                    modelName,
-                    SUBFOLDER_MAX_TOKENS,
-                    SUBFOLDER_TEMPERATURE,
-                    cancellationToken
-                );
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.Log($"INFO: Submapnaam AI-suggestie voor '{originalFilename}' geannuleerd.");
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.Log($"FOUT: Fout bij submapnaam AI-aanroep voor '{originalFilename}': {ex.Message}");
-                return null;
-            }
-
-            if (string.IsNullOrWhiteSpace(suggestedName))
-            {
-                _logger.Log($"WAARSCHUWING: AI retourneerde geen bruikbare submapnaam voor '{originalFilename}'.");
-                return null;
-            }
-
-            string sanitized = FileUtils.SanitizeFolderOrFileName(suggestedName);
-            var genericNames = new[] { "document", "bestand", "info", "overig", "algemeen" };
-            if (sanitized.Length < 3 || genericNames.Contains(sanitized.ToLowerInvariant()))
-            {
-                _logger.Log($"WAARSCHUWING: AI-suggestie '{suggestedName}' voor '{originalFilename}' is te kort of te generiek na opschonen. Wordt niet gebruikt.");
-                return null;
-            }
-
-            return sanitized;
-        }
+       
 
         public async Task<string> SuggestFileNameAsync(
             string textToAnalyze,
