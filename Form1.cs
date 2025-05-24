@@ -74,6 +74,8 @@ namespace AI_FileOrganizer2
             _logger = new UiLogger(rtbLog);
 
             // Initialiseer de services, geef de logger mee waar nodig
+       
+
             _aiService = new AiClassificationService();
             _textExtractionService = new TextExtractionService(_logger);
 
@@ -533,7 +535,7 @@ namespace AI_FileOrganizer2
                 string llmCategoryChoice = await _aiService.ClassifyCategoryAsync(
     extractedText,
     FOLDER_CATEGORIES.Keys.ToList(),
-    providerName,      // Gebruikt in de prompt (niet voor AI-aanroep)
+
     currentAiProvider, // Wordt gebruikt om de AI-call uit te voeren
     selectedModel,
     cancellationToken
@@ -593,12 +595,39 @@ namespace AI_FileOrganizer2
                         Directory.CreateDirectory(finalTargetDirectory); // Zorg dat de volledige doelmapstructuur bestaat
 
                         string newFileName = fileInfo.Name; // Standaard de originele naam
-
+                        if (_aiService == null)
+                        {
+                            _logger.Log("FOUT: _aiService is niet geïnitialiseerd.");
+                            SetUiEnabled(true); return;
+                        }
+                        if (currentAiProvider == null)
+                        {
+                            _logger.Log("FOUT: currentAiProvider is niet geïnitialiseerd.");
+                            SetUiEnabled(true); return;
+                        }
+                        if (string.IsNullOrWhiteSpace(selectedModel))
+                        {
+                            _logger.Log("FOUT: selectedModel is leeg of null.");
+                            SetUiEnabled(true); return;
+                        }
+                        if (_cancellationTokenSource == null)
+                        {
+                            _logger.Log("FOUT: _cancellationTokenSource is null.");
+                            SetUiEnabled(true); return;
+                        }
                         if (shouldRenameFiles)
                         {
                             _logger.Log($"INFO: AI-bestandsnaam genereren voor '{fileInfo.Name}'...");
 
                             // *** Correcte aanroep naar AiClassificationService.SuggestFileNameAsync ***
+
+                            if (_aiService == null)
+                            {
+                                _logger.Log("FOUT: _aiService is null in btnRenameSingleFile_Click.");
+                                SetUiEnabled(true);
+                                return;
+                            }
+
                             string suggestedNewBaseName = await _aiService.SuggestFileNameAsync(
                                 extractedText,
                                 fileInfo.Name,
@@ -828,6 +857,7 @@ namespace AI_FileOrganizer2
                     try
                     {
                         string extractedText = _textExtractionService.ExtractText(filePath);
+                        _logger.Log($"Extractedtext: '{extractedText}'...");
                         if (string.IsNullOrWhiteSpace(extractedText))
                         {
                             _logger.Log($"INFO: Geen zinvolle tekst geëxtraheerd uit {fileInfo.Name}. Gebruik bestandsnaam als context.");

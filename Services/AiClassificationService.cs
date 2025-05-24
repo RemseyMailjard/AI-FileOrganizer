@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -162,14 +163,20 @@ Voorgestelde submapnaam:";
         }
 
         public async Task<string> SuggestFileNameAsync(
-            string textToAnalyze,
-            string originalFilename,
-            IAiProvider aiProvider, // Hier wordt de AI-provider nu doorgegeven
-            string modelName,
-            CancellationToken cancellationToken)
+     string textToAnalyze,
+     string originalFilename,
+     IAiProvider aiProvider,
+     string modelName,
+     CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(textToAnalyze))
-                return System.IO.Path.GetFileNameWithoutExtension(originalFilename);
+                return Path.GetFileNameWithoutExtension(originalFilename);
+
+            if (aiProvider == null)
+                throw new ArgumentNullException(nameof(aiProvider), "De AI-provider is niet geïnitialiseerd.");
+
+            if (string.IsNullOrWhiteSpace(modelName))
+                throw new ArgumentNullException(nameof(modelName), "Modelnaam is niet ingevuld.");
 
             var prompt = $@"
 Je bent een AI-assistent die helpt bij het organiseren van bestanden.
@@ -190,7 +197,6 @@ Voorgestelde bestandsnaam:";
             string suggestedName = null;
             try
             {
-                // Roep de algemene methode van de IAiProvider interface aan
                 suggestedName = await aiProvider.GetTextCompletionAsync(
                     prompt,
                     modelName,
@@ -206,21 +212,23 @@ Voorgestelde bestandsnaam:";
             catch (Exception ex)
             {
                 Console.WriteLine($"Fout bij bestandsnaam AI-aanroep: {ex.Message}");
-                return System.IO.Path.GetFileNameWithoutExtension(originalFilename);
+                return Path.GetFileNameWithoutExtension(originalFilename);
             }
 
             if (string.IsNullOrWhiteSpace(suggestedName))
-                return System.IO.Path.GetFileNameWithoutExtension(originalFilename);
+                return Path.GetFileNameWithoutExtension(originalFilename);
 
-            string cleanedName = FileUtils.SanitizeFolderOrFileName(suggestedName);
+            string cleanedName = FileUtils.SanitizeFolderOrFileName(suggestedName ?? "");
 
             if (cleanedName.Length < 3 || new[] { "document", "bestand", "info", "overig", "algemeen", "factuur" }.Contains(cleanedName.ToLower()))
-                return System.IO.Path.GetFileNameWithoutExtension(originalFilename);
+                return Path.GetFileNameWithoutExtension(originalFilename);
 
             if (cleanedName.Length > 100)
                 cleanedName = cleanedName.Substring(0, 100);
 
             return cleanedName;
         }
+
+
     }
 }

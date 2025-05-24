@@ -16,12 +16,25 @@ namespace AI_FileOrganizer2.Services
 
         public GeminiAiProvider(string apiKey, HttpClient httpClient)
         {
+            if (string.IsNullOrWhiteSpace(apiKey))
+                throw new ArgumentException("De Gemini API key mag niet leeg zijn.", nameof(apiKey));
+
             _apiKey = apiKey;
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         }
 
         public async Task<string> GetTextCompletionAsync(string prompt, string modelName, int maxTokens, float temperature, CancellationToken cancellationToken)
         {
+            // === Validatie ===
+            if (string.IsNullOrWhiteSpace(prompt))
+                throw new ArgumentException("De prompt voor Gemini mag niet leeg zijn.", nameof(prompt));
+            if (string.IsNullOrWhiteSpace(modelName))
+                throw new ArgumentException("Modelnaam mag niet leeg zijn.", nameof(modelName));
+            if (maxTokens <= 0 || maxTokens > 2048)
+                throw new ArgumentOutOfRangeException(nameof(maxTokens), "maxTokens moet tussen 1 en 2048 zijn.");
+            if (temperature < 0 || temperature > 1)
+                throw new ArgumentOutOfRangeException(nameof(temperature), "temperature moet tussen 0.0 en 1.0 zijn.");
+
             var requestBody = new
             {
                 contents = new[]
@@ -56,22 +69,21 @@ namespace AI_FileOrganizer2.Services
             }
             catch (HttpRequestException httpEx)
             {
-                // Log de HTTP-fout, bijvoorbeeld: Console.WriteLine($"HTTP Fout bij Gemini: {httpEx.Message}");
+                Console.WriteLine($"[GeminiAiProvider] HTTP-fout: {httpEx.Message}");
                 return null;
             }
             catch (JsonException jsonEx)
             {
-                // Log de JSON-parse fout: Console.WriteLine($"JSON Fout bij Gemini: {jsonEx.Message}");
+                Console.WriteLine($"[GeminiAiProvider] JSON-fout: {jsonEx.Message}");
                 return null;
             }
             catch (OperationCanceledException)
             {
-                // Annulering gevraagd, geen fout
-                throw; // Belangrijk om deze door te gooien zodat de roepende methode het kan afhandelen
+                throw; // Belangrijk: propagatie van annulering
             }
             catch (Exception ex)
             {
-                // Algemene fout: Console.WriteLine($"Algemene Fout bij Gemini: {ex.Message}");
+                Console.WriteLine($"[GeminiAiProvider] Onbekende fout: {ex.Message}");
                 return null;
             }
         }
