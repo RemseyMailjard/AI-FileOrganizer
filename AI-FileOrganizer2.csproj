@@ -257,12 +257,14 @@
     <Compile Include="FormRenameFile.Designer.cs">
       <DependentUpon>FormRenameFile.cs</DependentUpon>
     </Compile>
+    <Compile Include="Models\ApplicationSettings.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Services\AiClassificationService.cs" />
     <Compile Include="Services\AzureOpenAiProvider.cs" />
     <Compile Include="Services\CredentialStorageService.cs" />
     <Compile Include="Services\DocxTextExtractor.cs" />
+    <Compile Include="Services\FileOrganizerService.cs" />
     <Compile Include="Services\GeminiAiProvider.cs" />
     <Compile Include="Services\IaProvider.cs" />
     <Compile Include="Services\ITextExtractor.cs" />
@@ -317,8 +319,6 @@
       <Install>false</Install>
     </BootstrapperPackage>
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Models\" />
-  </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -1,68 +1,55 @@
 ﻿using AI_FileOrganizer2.Utils;
-using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Wordprocessing;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using UglyToad.PdfPig;
 
 namespace AI_FileOrganizer2.Services
 {
     public class TextExtractionService
     {
-        private ILogger logger;
+        private readonly ILogger _logger;
+        private readonly List<ITextExtractor> _extractors; // Collection of specific extractors
 
-        public TextExtractionService(ILogger logger)
+        public TextExtractionService(ILogger logger, IEnumerable<ITextExtractor> extractors)
         {
-            this.logger=logger;
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _extractors = extractors?.ToList() ?? throw new ArgumentNullException(nameof(extractors));
+
+            if (!_extractors.Any())
+            {
+                _logger.Log("WAARSCHUWING: TextExtractionService geïnitialiseerd zonder ITextExtractors.");
+            }
         }
 
         public string ExtractText(string filePath)
         {
-            string text = "";
-            try
+            if (string.IsNullOrWhiteSpace(filePath))
             {
-                string extension = Path.GetExtension(filePath).ToLower();
-                if (extension == ".pdf")
+                _logger.Log("WAARSCHUWING: Geen bestandspad opgegeven voor tekstextractie.");
+                return string.Empty;
+            }
+
+            if (!File.Exists(filePath))
+            {
+                _logger.Log($"WAARSCHUWING: Bestand niet gevonden voor tekstextractie: '{Path.GetFileName(filePath)}'.");
+                return string.Empty;
+            }
+
+            // Find the correct extractor for the file extension
+            foreach (var extractor in _extractors)
+            {
+                if (extractor.CanExtract(filePath))
                 {
-                    using (PdfDocument document = PdfDocument.Open(filePath))
-                    {
-                        if (document.NumberOfPages == 0) return "";
-                        foreach (var page in document.GetPages())
-                        {
-                            text += page.Text;
-                        }
-                    }
-                }
-                else if (extension == ".docx")
-                {
-                    using (WordprocessingDocument wordDoc = WordprocessingDocument.Open(filePath, false))
-                    {
-                        Body body = wordDoc.MainDocumentPart?.Document?.Body;
-                        if (body != null)
-                        {
-                            text = string.Join(" ", body.Elements<Paragraph>().Select(p => p.InnerText));
-                        }
-                    }
-                }
-                else if (extension == ".txt" || extension == ".md")
-                {
-                    text = File.ReadAllText(filePath);
+                    _logger.Log($"INFO: Extraheren van tekst uit '{Path.GetFileName(filePath)}' met {extractor.GetType().Name}.");
+                    return extractor.Extract(filePath);
                 }
             }
-            catch (Exception ex)
-            {
-                LogMessage($"WAARSCHUWING: Algemene fout bij lezen van bestand {Path.GetFileName(filePath)}: {ex.Message}");
-            }
-            return text.Trim();
+
+            _logger.Log($"WAARSCHUWING: Geen geschikte tekstextractor gevonden voor '{Path.GetFileName(filePath)}'.");
+            return string.Empty;
         }
 
-        private void LogMessage(string v)
-        {
-            throw new NotImplementedException();
-        }
+        // The previous LogMessage method was unnecessary as _logger is directly available.
     }
 }

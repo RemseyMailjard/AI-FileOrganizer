@@ -1,4 +1,6 @@
-﻿using System.Linq;
+﻿using System;
+using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace AI_FileOrganizer2.Utils
@@ -8,19 +10,19 @@ namespace AI_FileOrganizer2.Utils
         public static string SanitizeFileName(string proposedFullName)
         {
             if (string.IsNullOrWhiteSpace(proposedFullName)) return "";
-            // Verwijder ongeldige karakters voor bestandsnamen
+            // Remove invalid characters for file names
             string name = Regex.Replace(proposedFullName, @"[<>:""/\\|?*\x00-\x1F]", "_");
-            // Trim spaties en punten aan begin/einde
+            // Trim spaces and dots at the beginning/end
             name = name.Trim('.', ' ');
-            // Meerdere spaties/underscores vervangen door een enkele
+            // Replace multiple spaces/underscores with a single one
             name = Regex.Replace(name, @"\s+", " ").Trim();
             name = Regex.Replace(name, @"_+", "_").Trim('_');
-            // Limiteer tot 100 karakters (veilig voor filesysteem)
+            // Max length should ideally come from ApplicationSettings, but keeping it consistent with original Form1 constant for now.
             if (name.Length > 100) name = name.Substring(0, 100);
 
-            // Zorg ervoor dat de naam niet alleen underscores of spaties is geworden
-            if (string.IsNullOrWhiteSpace(name.Replace("_", "")))
-                return ""; // Of "Ongeldige Naam"
+            // Ensure the name doesn't become empty or just underscores/spaces after sanitization
+            if (string.IsNullOrWhiteSpace(name.Replace("_", "").Replace(" ", "")))
+                return "OngeldigeNaam"; // Provide a fallback if it becomes totally unreadable
 
             return name;
         }
@@ -28,10 +30,44 @@ namespace AI_FileOrganizer2.Utils
         public static string SanitizeFolderOrFileName(string naam)
         {
             if (string.IsNullOrWhiteSpace(naam)) return "";
-            var invalidChars = System.IO.Path.GetInvalidFileNameChars();
-            var clean = new string(naam.Where(c => !invalidChars.Contains(c)).ToArray());
-            clean = clean.Replace(".", "").Replace(",", "").Trim();
+            var invalidChars = Path.GetInvalidFileNameChars(); // Also covers some path chars
+            // Union with invalid path chars for robustness for folders
+            var invalidPathChars = Path.GetInvalidPathChars().Union(invalidChars).Distinct().ToArray();
+            var clean = new string(naam.Where(c => !invalidPathChars.Contains(c)).ToArray());
+            clean = clean.Replace(".", "").Replace(",", "").Trim(); // Remove common punctuation
+            // Replace multiple spaces with single space, then trim again
+            clean = Regex.Replace(clean, @"\s+", " ").Trim();
+            // Remove trailing spaces, periods, or other common problematic characters for paths
+            clean = clean.TrimEnd('.', ' ');
+
+            if (string.IsNullOrWhiteSpace(clean))
+                return "OngeldigeMapnaam";
+
             return clean;
+        }
+
+        /// <summary>
+        /// Calculates the relative path of a full path relative to a base path.
+        /// </summary>
+        public static string GetRelativePath(string basePath, string fullPath)
+        {
+            string baseWithSeparator = AppendDirectorySeparatorChar(basePath);
+            Uri baseUri = new Uri(baseWithSeparator);
+            Uri fullUri = new Uri(fullPath);
+
+            Uri relativeUri = baseUri.MakeRelativeUri(fullUri);
+
+            return Uri.UnescapeDataString(relativeUri.ToString().Replace('/', Path.DirectorySeparatorChar));
+        }
+
+        /// <summary>
+        /// Ensures a path ends with a directory separator character.
+        /// </summary>
+        public static string AppendDirectorySeparatorChar(string path)
+        {
+            if (!string.IsNullOrEmpty(path) && !path.EndsWith(Path.DirectorySeparatorChar.ToString()))
+                return path + Path.DirectorySeparatorChar;
+            return path;
         }
     }
 }
