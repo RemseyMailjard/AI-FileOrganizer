@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO; // Nodig voor Path.GetFileNameWithoutExtension
 using System.Linq;
+using System.Text.RegularExpressions; // NIEUW: Nodig voor Regex.Replace
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -108,29 +109,30 @@ namespace AI_FileOrganizer2.Services
 </tekst_inhoud>" :
                 $@"<document_zonder_inhoud>
 {aiInputText}
-</document_zonder_inhoud>";
+</document_zonder_inhode>";
 
+            // AANGEPAST: Few-shot voorbeelden genereren nu ALLEEN de categorienaam.
             var fewShotExamples = @"
 Voorbeeld 1:
 Tekst: 'Ik heb mijn autoverzekering aangepast bij Interpolis.'
-Categorie: Verzekeringen
+Antwoord: Verzekeringen
 
 Voorbeeld 2:
 Tekst: 'Onze zomervakantie naar Spanje is geboekt.'
-Categorie: Reizen en vakanties
+Antwoord: Reizen en vakanties
 
 Voorbeeld 3:
 Tekst: 'Ik heb mijn salaris ontvangen en overgemaakt naar mijn spaarrekening.'
-Categorie: Financiën
+Antwoord: Financiën
 
 Voorbeeld 4:
 Tekst: 'De belastingaangifte voor 2022 is binnen.'
-Categorie: Belastingen
+Antwoord: Belastingen
 
 Voorbeeld 5:
 Bestandsnaam: huwelijksakte_familie_Jansen.pdf
 Tekst: Dit document heeft de bestandsnaam 'huwelijksakte_familie_Jansen'. Er kon geen inhoud uit het document worden geëxtraheerd, of de inhoud was leeg. Analyseer alleen de bestandsnaam en probeer daaruit de essentie te halen.
-Categorie: Persoonlijke documenten
+Antwoord: Persoonlijke documenten
 ";
 
             var prompt = $@"
@@ -161,7 +163,7 @@ Documentinformatie:
 
 {textContext}
 
-**Antwoord (alleen de categorienaam):**"; // Sterkere afsluiting om de AI te sturen
+Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorbeelden
 
             string chosenCategory = null;
 
@@ -188,13 +190,25 @@ Documentinformatie:
 
             _logger.Log($"DEBUG: Ruwe AI-antwoord voor categorie: '{chosenCategory?.Replace("\n", "\\n")}'.");
 
+            // GECORRIGEERD: Gebruik Regex.Replace voor case-insensitive vervanging
+            if (!string.IsNullOrWhiteSpace(chosenCategory))
+            {
+                // Verwijder specifieke prefixes die de AI mogelijk nog toevoegt
+                chosenCategory = Regex.Replace(chosenCategory, "Antwoord:", "", RegexOptions.IgnoreCase).Trim();
+                chosenCategory = Regex.Replace(chosenCategory, "Categorie:", "", RegexOptions.IgnoreCase).Trim();
+                // Verwijder eventuele quotes als de AI deze onverhoopt toevoegt
+                chosenCategory = chosenCategory.Trim('\'', '\"');
+            }
+
+
             if (string.IsNullOrWhiteSpace(chosenCategory))
             {
                 _logger.Log("WAARSCHUWING: AI retourneerde geen bruikbare categorie (leeg of witruimte). Val terug op default.");
                 return DEFAULT_FALLBACK_CATEGORY;
             }
 
-            chosenCategory = chosenCategory.Trim(); // Trim eventuele witruimte
+            // `chosenCategory` is al getrimd door de bovenstaande opschoning, maar deze regel kan blijven voor consistentie.
+            // chosenCategory = chosenCategory.Trim(); 
 
             if (validCategories.Contains(chosenCategory))
                 return chosenCategory;
@@ -296,7 +310,7 @@ Antwoord: Huwelijksakte Piet en Nel
 
 {textContext}
 
-**Antwoord (alleen de voorgestelde submapnaam):**"; // Directe instructie
+Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorbeelden
 
             string suggestedName = null;
 
@@ -323,6 +337,13 @@ Antwoord: Huwelijksakte Piet en Nel
 
             _logger.Log($"DEBUG: Ruwe AI-antwoord voor submapnaam: '{suggestedName?.Replace("\n", "\\n")}'.");
 
+            // GECORRIGEERD: Gebruik Regex.Replace voor case-insensitive vervanging
+            if (!string.IsNullOrWhiteSpace(suggestedName))
+            {
+                suggestedName = Regex.Replace(suggestedName, "Antwoord:", "", RegexOptions.IgnoreCase).Trim();
+                suggestedName = suggestedName.Trim('\'', '\"');
+            }
+
             string cleaned = FileUtils.SanitizeFolderOrFileName(suggestedName?.Trim() ?? "");
             var generiek = new[] { "document", "bestand", "info", "overig", "algemeen", "diversen", "" };
 
@@ -346,6 +367,12 @@ Antwoord: Huwelijksakte Piet en Nel
                     );
 
                     _logger.Log($"DEBUG: Ruwe AI-antwoord voor submapnaam (retry): '{suggestedName?.Replace("\n", "\\n")}'.");
+                    // GECORRIGEERD: Opschoning na retry met Regex.Replace
+                    if (!string.IsNullOrWhiteSpace(suggestedName))
+                    {
+                        suggestedName = Regex.Replace(suggestedName, "Antwoord:", "", RegexOptions.IgnoreCase).Trim();
+                        suggestedName = suggestedName.Trim('\'', '\"');
+                    }
                     cleaned = FileUtils.SanitizeFolderOrFileName(suggestedName?.Trim() ?? "");
                 }
                 catch (Exception ex)
@@ -422,7 +449,7 @@ Als het document geen leesbare inhoud heeft (<document_zonder_inhoud>), focus da
 
 {textContext}
 
-**Antwoord (alleen de voorgestelde bestandsnaam):**"; // Directe instructie
+Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorbeelden
 
             string suggestedName = null;
             try
@@ -447,6 +474,14 @@ Als het document geen leesbare inhoud heeft (<document_zonder_inhoud>), focus da
             }
 
             _logger.Log($"DEBUG: Ruwe AI-antwoord voor bestandsnaam: '{suggestedName?.Replace("\n", "\\n")}'.");
+
+            // GECORRIGEERD: Gebruik Regex.Replace voor case-insensitive vervanging
+            if (!string.IsNullOrWhiteSpace(suggestedName))
+            {
+                suggestedName = Regex.Replace(suggestedName, "Antwoord:", "", RegexOptions.IgnoreCase).Trim();
+                suggestedName = suggestedName.Trim('\'', '\"');
+            }
+
 
             if (string.IsNullOrWhiteSpace(suggestedName))
             {

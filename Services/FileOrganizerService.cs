@@ -319,7 +319,7 @@ namespace AI_FileOrganizer2.Services
             string targetCategoryFolderPath = Path.Combine(destinationBasePath, targetCategoryFolderName);
             Directory.CreateDirectory(targetCategoryFolderPath); // Ensure the category folder exists
 
-            string finalDestinationFolderPath = targetCategoryFolderPath;
+            string aiSuggestedSubfolderName = null;
             bool hadSubfolder = false;
 
             _logger.Log($"INFO: Poging tot genereren submapnaam voor '{fileInfo.Name}'...");
@@ -337,21 +337,37 @@ namespace AI_FileOrganizer2.Services
                 if (subfolderNameSuggestion.Length < ApplicationSettings.MinSubfolderNameLength || subfolderNameSuggestion.Length > ApplicationSettings.MaxSubfolderNameLength)
                 {
                     _logger.Log($"WAARSCHUWING: AI-gegenereerde submapnaam '{subfolderNameSuggestion}' is ongeldig (lengte). Wordt niet gebruikt.");
-                    subfolderNameSuggestion = null;
+                    subfolderNameSuggestion = null; // Set to null if invalid to trigger fallback
                 }
             }
 
             if (!string.IsNullOrWhiteSpace(subfolderNameSuggestion))
             {
-                string targetSubfolderPath = Path.Combine(targetCategoryFolderPath, subfolderNameSuggestion);
-                finalDestinationFolderPath = targetSubfolderPath;
-                _logger.Log($"INFO: AI suggereerde submap: '{subfolderNameSuggestion}'");
+                aiSuggestedSubfolderName = subfolderNameSuggestion; // Store the validated AI-suggested name
+                _logger.Log($"INFO: AI suggereerde submap: '{aiSuggestedSubfolderName}'");
                 hadSubfolder = true;
             }
             else
             {
-                _logger.Log($"INFO: Geen geschikte submapnaam gegenereerd. Bestand komt direct in categorie '{targetCategoryFolderName}'.");
+                _logger.Log($"INFO: Geen geschikte submapnaam gegenereerd. Bestand komt direct in categorie '{targetCategoryFolderName}' of in originele submap structuur.");
             }
+
+            string finalTargetDirectory;
+
+            // AANGEPAST: Bepaal het uiteindelijke doelpad
+            if (hadSubfolder)
+            {
+                // Als er een AI-gesuggereerde submap is, plaats het bestand DIRECT daarin.
+                finalTargetDirectory = Path.Combine(targetCategoryFolderPath, aiSuggestedSubfolderName);
+            }
+            else
+            {
+                // Als er GEEN AI-gesuggereerde submap is, behoud dan de originele relatieve mapstructuur onder de categorie.
+                string relativePathFromSource = FileUtils.GetRelativePath(sourcePath, Path.GetDirectoryName(filePath));
+                finalTargetDirectory = Path.Combine(targetCategoryFolderPath, relativePathFromSource);
+            }
+            Directory.CreateDirectory(finalTargetDirectory); // Ensure the full target directory structure exists
+
 
             string newFileName = fileInfo.Name;
             bool wasRenamed = false;
@@ -441,12 +457,6 @@ namespace AI_FileOrganizer2.Services
                     }
                 }
             }
-
-            // Reconstruct the relative path from the original source structure
-            string relativePathFromSource = FileUtils.GetRelativePath(sourcePath, Path.GetDirectoryName(filePath));
-            // This ensures that if files were already in subfolders in the source, those subfolders are re-created under the new category/subfolder
-            string finalTargetDirectory = Path.Combine(finalDestinationFolderPath, relativePathFromSource);
-            Directory.CreateDirectory(finalTargetDirectory); // Ensure the full target directory structure exists
 
             string destinationFilePath = Path.Combine(finalTargetDirectory, newFileName);
 
