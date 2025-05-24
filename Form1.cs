@@ -76,7 +76,7 @@ namespace AI_FileOrganizer2
             // Initialiseer de services, geef de logger mee waar nodig
        
 
-            _aiService = new AiClassificationService();
+            _aiService = new AiClassificationService(_logger);
             _textExtractionService = new TextExtractionService(_logger);
 
 

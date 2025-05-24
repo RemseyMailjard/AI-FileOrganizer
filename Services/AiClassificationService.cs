@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
+using System.IO; // Nodig voor Path.GetFileNameWithoutExtension
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,12 +11,14 @@ using System.Threading.Tasks;
 // using Azure.AI.OpenAI;
 // using Azure;
 
-using AI_FileOrganizer2.Utils; // Nodig voor FileUtils
+using AI_FileOrganizer2.Utils; // Nodig voor FileUtils en ILogger
 
 namespace AI_FileOrganizer2.Services
 {
     public class AiClassificationService
     {
+        private readonly ILogger _logger; // NIEUW: Logger field
+
         private const string DEFAULT_FALLBACK_CATEGORY = "Overig";
 
         // Nieuwe constanten voor de AI-parameters, per taak
@@ -29,7 +31,12 @@ namespace AI_FileOrganizer2.Services
         private const int FILENAME_MAX_TOKENS = 30;
         private const float FILENAME_TEMPERATURE = 0.3f; // Nog iets hoger voor creativiteit
 
-            
+        // NIEUW: Constructor om ILogger te injecteren
+        public AiClassificationService(ILogger logger)
+        {
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        }
+
         // ======= Publieke AI-methodes =======
 
         public async Task<string> ClassifyCategoryAsync(
@@ -40,8 +47,21 @@ namespace AI_FileOrganizer2.Services
             CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(textToClassify))
+            {
+                _logger.Log("WAARSCHUWING: Geen tekst om te classificeren. Retourneer fallback categorie.");
                 return DEFAULT_FALLBACK_CATEGORY;
-  
+            }
+
+            if (aiProvider == null)
+            {
+                _logger.Log("FOUT: AI-provider is null voor categorieclassificatie.");
+                return DEFAULT_FALLBACK_CATEGORY;
+            }
+            if (string.IsNullOrWhiteSpace(modelName))
+            {
+                _logger.Log("FOUT: Modelnaam is leeg voor categorieclassificatie.");
+                return DEFAULT_FALLBACK_CATEGORY;
+            }
 
             var categoryListForPrompt = string.Join("\n", categories.Select(cat => $"- {cat}"));
             var prompt = $@"
@@ -65,7 +85,6 @@ namespace AI_FileOrganizer2.Services
 
             try
             {
-                // Roep de algemene methode van de IAiProvider interface aan
                 chosenCategory = await aiProvider.GetTextCompletionAsync(
                     prompt,
                     modelName,
@@ -76,17 +95,20 @@ namespace AI_FileOrganizer2.Services
             }
             catch (OperationCanceledException)
             {
+                _logger.Log("INFO: Categorieclassificatie geannuleerd.");
                 throw; // Belangrijk om annulering door te geven
             }
             catch (Exception ex)
             {
-                // Je kunt hier loggen dat de AI-aanroep mislukte
-                Console.WriteLine($"Fout bij classificatie AI-aanroep: {ex.Message}");
+                _logger.Log($"FOUT: Fout bij classificatie AI-aanroep: {ex.Message}");
                 return DEFAULT_FALLBACK_CATEGORY;
             }
 
             if (string.IsNullOrWhiteSpace(chosenCategory))
+            {
+                _logger.Log("WAARSCHUWING: AI retourneerde geen bruikbare categorie. Val terug op default.");
                 return DEFAULT_FALLBACK_CATEGORY;
+            }
 
             var validCategories = new List<string>(categories) { DEFAULT_FALLBACK_CATEGORY };
             chosenCategory = chosenCategory.Trim();
@@ -97,10 +119,13 @@ namespace AI_FileOrganizer2.Services
             // Fuzzy match (kleine afwijkingen opvangen)
             foreach (var validCat in validCategories)
             {
-                if (validCat.ToLower().Contains(chosenCategory.ToLower()) || chosenCategory.ToLower().Contains(validCat.ToLower()))
+                if (validCat.ToLowerInvariant().Contains(chosenCategory.ToLowerInvariant()) || chosenCategory.ToLowerInvariant().Contains(validCat.ToLowerInvariant()))
+                {
+                    _logger.Log($"INFO: Gevonden categorie '{chosenCategory}' fuzzy-matched naar '{validCat}'.");
                     return validCat;
+                }
             }
-
+            _logger.Log($"WAARSCHUWING: AI-gekozen categorie '{chosenCategory}' is niet valide en kon niet fuzzy-matched worden. Val terug op default.");
             return DEFAULT_FALLBACK_CATEGORY;
         }
 
@@ -112,7 +137,20 @@ namespace AI_FileOrganizer2.Services
             CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(textToAnalyze))
+            {
+                _logger.Log($"WAARSCHUWING: Geen tekst om te analyseren voor submapnaam van '{originalFilename}'.");
                 return null;
+            }
+            if (aiProvider == null)
+            {
+                _logger.Log("FOUT: AI-provider is null voor submapnaam-suggestie.");
+                return null;
+            }
+            if (string.IsNullOrWhiteSpace(modelName))
+            {
+                _logger.Log("FOUT: Modelnaam is leeg voor submapnaam-suggestie.");
+                return null;
+            }
 
             var prompt = $@"
 Je bent een AI-assistent die helpt bij het organiseren van bestanden.
@@ -132,7 +170,6 @@ Voorgestelde submapnaam:";
             string suggestedName = null;
             try
             {
-                // Roep de algemene methode van de IAiProvider interface aan
                 suggestedName = await aiProvider.GetTextCompletionAsync(
                     prompt,
                     modelName,
@@ -143,40 +180,55 @@ Voorgestelde submapnaam:";
             }
             catch (OperationCanceledException)
             {
+                _logger.Log($"INFO: Submapnaam AI-suggestie voor '{originalFilename}' geannuleerd.");
                 throw;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Fout bij submapnaam AI-aanroep: {ex.Message}");
+                _logger.Log($"FOUT: Fout bij submapnaam AI-aanroep voor '{originalFilename}': {ex.Message}");
                 return null;
             }
 
-            if (string.IsNullOrWhiteSpace(suggestedName)) return null;
+            if (string.IsNullOrWhiteSpace(suggestedName))
+            {
+                _logger.Log($"WAARSCHUWING: AI retourneerde geen bruikbare submapnaam voor '{originalFilename}'.");
+                return null;
+            }
 
             string sanitized = FileUtils.SanitizeFolderOrFileName(suggestedName);
-            // Je kunt overwegen om een meer specifieke lijst van "generieke" namen bij te houden
-            // of een LLM te vragen of de naam generiek is. Voor nu, behoud de huidige logica.
-            if (sanitized.Length < 3 || new[] { "document", "bestand", "info", "overig", "algemeen" }.Contains(sanitized.ToLower()))
+            var genericNames = new[] { "document", "bestand", "info", "overig", "algemeen" };
+            if (sanitized.Length < 3 || genericNames.Contains(sanitized.ToLowerInvariant()))
+            {
+                _logger.Log($"WAARSCHUWING: AI-suggestie '{suggestedName}' voor '{originalFilename}' is te kort of te generiek na opschonen. Wordt niet gebruikt.");
                 return null;
+            }
 
             return sanitized;
         }
 
         public async Task<string> SuggestFileNameAsync(
-     string textToAnalyze,
-     string originalFilename,
-     IAiProvider aiProvider,
-     string modelName,
-     CancellationToken cancellationToken)
+            string textToAnalyze,
+            string originalFilename,
+            IAiProvider aiProvider, // Hier wordt de AI-provider nu doorgegeven
+            string modelName,
+            CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(textToAnalyze))
+            {
+                _logger.Log($"INFO: Geen tekst geanalyseerd voor bestandsnaam van '{originalFilename}'. Retourneer originele naam (zonder extensie).");
                 return Path.GetFileNameWithoutExtension(originalFilename);
+            }
 
             if (aiProvider == null)
-                throw new ArgumentNullException(nameof(aiProvider), "De AI-provider is niet geïnitialiseerd.");
-
+            {
+                _logger.Log("FOUT: AI-provider is null voor bestandsnaam-suggestie.");
+                return Path.GetFileNameWithoutExtension(originalFilename); // Fallback gracefully
+            }
             if (string.IsNullOrWhiteSpace(modelName))
-                throw new ArgumentNullException(nameof(modelName), "Modelnaam is niet ingevuld.");
+            {
+                _logger.Log("FOUT: Modelnaam is leeg voor bestandsnaam-suggestie.");
+                return Path.GetFileNameWithoutExtension(originalFilename); // Fallback gracefully
+            }
 
             var prompt = $@"
 Je bent een AI-assistent die helpt bij het organiseren van bestanden.
@@ -207,28 +259,43 @@ Voorgestelde bestandsnaam:";
             }
             catch (OperationCanceledException)
             {
-                throw;
+                _logger.Log($"INFO: Bestandsnaam AI-suggestie voor '{originalFilename}' geannuleerd.");
+                throw; // Propagate cancellation
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Fout bij bestandsnaam AI-aanroep: {ex.Message}");
-                return Path.GetFileNameWithoutExtension(originalFilename);
+                _logger.Log($"FOUT: Fout bij bestandsnaam AI-aanroep voor '{originalFilename}': {ex.Message}");
+                return Path.GetFileNameWithoutExtension(originalFilename); // Fallback on error
             }
 
             if (string.IsNullOrWhiteSpace(suggestedName))
+            {
+                _logger.Log($"WAARSCHUWING: AI retourneerde geen bruikbare bestandsnaam voor '{originalFilename}'. Gebruik originele naam.");
                 return Path.GetFileNameWithoutExtension(originalFilename);
+            }
 
-            string cleanedName = FileUtils.SanitizeFolderOrFileName(suggestedName ?? "");
+            // Use a temporary variable for the cleaned name to ensure subsequent checks operate on the sanitized version.
+            string cleanedName = FileUtils.SanitizeFolderOrFileName(suggestedName);
 
-            if (cleanedName.Length < 3 || new[] { "document", "bestand", "info", "overig", "algemeen", "factuur" }.Contains(cleanedName.ToLower()))
+            // Check for generic/unhelpful names after sanitization
+            // Use ToLowerInvariant for culture-agnostic comparison
+            var genericNames = new[] { "document", "bestand", "info", "overig", "algemeen", "factuur" };
+            if (cleanedName.Length < 3 || genericNames.Contains(cleanedName.ToLowerInvariant()))
+            {
+                _logger.Log($"WAARSCHUWING: AI-suggestie '{suggestedName}' voor '{originalFilename}' is te kort of te generiek na opschonen. Gebruik originele naam.");
                 return Path.GetFileNameWithoutExtension(originalFilename);
+            }
 
+            // Apply max length constraint
+            // Hardcoded 100 for now, as MAX_FILENAME_LENGTH from Form1 is not directly accessible here.
+            // Consider making it a constant in AiClassificationService if it's a service-level limit.
             if (cleanedName.Length > 100)
+            {
                 cleanedName = cleanedName.Substring(0, 100);
+                _logger.Log($"INFO: AI-gegenereerde bestandsnaam voor '{originalFilename}' afgekort naar '{cleanedName}' wegens lengtebeperking.");
+            }
 
             return cleanedName;
         }
-
-
     }
 }
