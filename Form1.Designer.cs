@@ -36,6 +36,7 @@
             this.btnStartOrganization = new System.Windows.Forms.Button();
             this.btnStopOrganization = new System.Windows.Forms.Button();
             this.btnSaveLog = new System.Windows.Forms.Button();
+            this.btnRenameSingleFile = new System.Windows.Forms.Button();
             this.progressBar1 = new System.Windows.Forms.ProgressBar();
             this.lblTokensUsed = new System.Windows.Forms.Label();
             this.rtbLog = new System.Windows.Forms.RichTextBox();
@@ -67,14 +68,15 @@
             this.tableLayoutPanel1.Controls.Add(this.btnStartOrganization, 0, 7);
             this.tableLayoutPanel1.Controls.Add(this.btnStopOrganization, 1, 7);
             this.tableLayoutPanel1.Controls.Add(this.btnSaveLog, 2, 7);
-            this.tableLayoutPanel1.Controls.Add(this.progressBar1, 0, 8);
-            this.tableLayoutPanel1.Controls.Add(this.lblTokensUsed, 2, 8);
-            this.tableLayoutPanel1.Controls.Add(this.rtbLog, 0, 9);
-            this.tableLayoutPanel1.Controls.Add(this.linkLabelAuthor, 0, 10);
+            this.tableLayoutPanel1.Controls.Add(this.btnRenameSingleFile, 0, 8);
+            this.tableLayoutPanel1.Controls.Add(this.progressBar1, 0, 9);
+            this.tableLayoutPanel1.Controls.Add(this.lblTokensUsed, 2, 9);
+            this.tableLayoutPanel1.Controls.Add(this.rtbLog, 0, 10);
+            this.tableLayoutPanel1.Controls.Add(this.linkLabelAuthor, 0, 11);
             this.tableLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tableLayoutPanel1.Location = new System.Drawing.Point(0, 0);
             this.tableLayoutPanel1.Name = "tableLayoutPanel1";
-            this.tableLayoutPanel1.RowCount = 12;
+            this.tableLayoutPanel1.RowCount = 13;
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
@@ -82,6 +84,7 @@
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 25F));
+            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 36F));
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 36F));
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -252,7 +255,7 @@
             this.btnStartOrganization.Name = "btnStartOrganization";
             this.btnStartOrganization.Size = new System.Drawing.Size(164, 30);
             this.btnStartOrganization.TabIndex = 15;
-            this.btnStartOrganization.Text = "Start";
+            this.btnStartOrganization.Text = "Start Organisatie";
             this.btnStartOrganization.Click += new System.EventHandler(this.btnStartOrganization_Click);
             // 
             // btnStopOrganization
@@ -262,7 +265,7 @@
             this.btnStopOrganization.Name = "btnStopOrganization";
             this.btnStopOrganization.Size = new System.Drawing.Size(504, 30);
             this.btnStopOrganization.TabIndex = 16;
-            this.btnStopOrganization.Text = "Stop";
+            this.btnStopOrganization.Text = "Stop Organisatie";
             this.btnStopOrganization.Click += new System.EventHandler(this.btnStopOrganization_Click);
             // 
             // btnSaveLog
@@ -275,35 +278,47 @@
             this.btnSaveLog.Text = "Log Opslaan";
             this.btnSaveLog.Click += new System.EventHandler(this.btnSaveLog_Click);
             // 
+            // btnRenameSingleFile
+            // 
+            this.tableLayoutPanel1.SetColumnSpan(this.btnRenameSingleFile, 3);
+            this.btnRenameSingleFile.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnRenameSingleFile.Location = new System.Drawing.Point(3, 232);
+            this.btnRenameSingleFile.Name = "btnRenameSingleFile";
+            this.btnRenameSingleFile.Size = new System.Drawing.Size(844, 30);
+            this.btnRenameSingleFile.TabIndex = 18;
+            this.btnRenameSingleFile.Text = "Hernoem Enkel Bestand met AI";
+            this.btnRenameSingleFile.UseVisualStyleBackColor = true;
+            this.btnRenameSingleFile.Click += new System.EventHandler(this.btnRenameSingleFile_Click);
+            // 
             // progressBar1
             // 
             this.progressBar1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
             this.tableLayoutPanel1.SetColumnSpan(this.progressBar1, 2);
-            this.progressBar1.Location = new System.Drawing.Point(3, 232);
+            this.progressBar1.Location = new System.Drawing.Point(3, 268);
             this.progressBar1.Name = "progressBar1";
             this.progressBar1.Size = new System.Drawing.Size(674, 16);
-            this.progressBar1.TabIndex = 18;
+            this.progressBar1.TabIndex = 19;
             this.progressBar1.Visible = false;
             // 
             // lblTokensUsed
             // 
             this.lblTokensUsed.Anchor = System.Windows.Forms.AnchorStyles.Right;
             this.lblTokensUsed.AutoSize = true;
-            this.lblTokensUsed.Location = new System.Drawing.Point(730, 232);
+            this.lblTokensUsed.Location = new System.Drawing.Point(730, 268);
             this.lblTokensUsed.Name = "lblTokensUsed";
             this.lblTokensUsed.Size = new System.Drawing.Size(117, 16);
-            this.lblTokensUsed.TabIndex = 19;
+            this.lblTokensUsed.TabIndex = 20;
             this.lblTokensUsed.Text = "Tokens gebruikt: 0";
             // 
             // rtbLog
             // 
             this.tableLayoutPanel1.SetColumnSpan(this.rtbLog, 3);
             this.rtbLog.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rtbLog.Location = new System.Drawing.Point(3, 254);
+            this.rtbLog.Location = new System.Drawing.Point(3, 290);
             this.rtbLog.Name = "rtbLog";
             this.rtbLog.ReadOnly = true;
-            this.rtbLog.Size = new System.Drawing.Size(844, 195);
-            this.rtbLog.TabIndex = 20;
+            this.rtbLog.Size = new System.Drawing.Size(844, 159);
+            this.rtbLog.TabIndex = 21;
             this.rtbLog.Text = "";
             // 
             // linkLabelAuthor
@@ -314,7 +329,7 @@
             this.linkLabelAuthor.Location = new System.Drawing.Point(682, 462);
             this.linkLabelAuthor.Name = "linkLabelAuthor";
             this.linkLabelAuthor.Size = new System.Drawing.Size(165, 16);
-            this.linkLabelAuthor.TabIndex = 21;
+            this.linkLabelAuthor.TabIndex = 22;
             this.linkLabelAuthor.TabStop = true;
             this.linkLabelAuthor.Text = "Made by Remsey Mailjard";
             this.linkLabelAuthor.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -360,5 +375,6 @@
         private System.Windows.Forms.Label lblTokensUsed;
         private System.Windows.Forms.RichTextBox rtbLog;
         private System.Windows.Forms.LinkLabel linkLabelAuthor;
+        private System.Windows.Forms.Button btnRenameSingleFile;
     }
 }

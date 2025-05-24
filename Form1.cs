@@ -28,6 +28,8 @@ namespace AI_FileOrganizer2
         private const int MIN_SUBFOLDER_NAME_LENGTH = 3;
         private const int MAX_SUBFOLDER_NAME_LENGTH = 50;
         private const int MAX_FILENAME_LENGTH = 100; // Maximale lengte voor AI-gegenereerde bestandsnaam
+        private readonly AiClassificationService _aiService;
+        private readonly TextExtractionService _textExtractionService; // Zorg dat deze hier staat
 
         // Logger instantie voor UI-updates
         private ILogger _logger;
@@ -61,8 +63,7 @@ namespace AI_FileOrganizer2
         private CancellationTokenSource _cancellationTokenSource;
 
         // Services die via Dependency Injection (DI) zouden gaan, maar hier handmatig geïnitialiseerd
-        private readonly AiClassificationService _aiService;
-        private readonly TextExtractionService _textExtractionService;
+
 
 
         public Form1()
@@ -75,6 +76,8 @@ namespace AI_FileOrganizer2
             // Initialiseer de services, geef de logger mee waar nodig
             _aiService = new AiClassificationService();
             _textExtractionService = new TextExtractionService(_logger);
+
+
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -511,13 +514,14 @@ namespace AI_FileOrganizer2
                 _logger.Log($"\n[BESTAND] Verwerken van: {fileInfo.Name} (locatie: {Path.GetDirectoryName(filePath)})");
 
                 // *** Hier wordt de TextExtractionService gebruikt ***
-                string extractedText = _textExtractionService.ExtractText(filePath);
+                string extractedText = _textExtractionService.ExtractText(filePath); // Gebruik de geoptimaliseerde ExtractText methode
 
                 if (string.IsNullOrWhiteSpace(extractedText))
                 {
                     _logger.Log($"INFO: Geen zinvolle tekst geëxtraheerd uit {fileInfo.Name}. Bestand wordt behandeld met bestandsnaam context (als fallback).");
                     extractedText = fileInfo.Name; // Gebruik bestandsnaam als minimale context
                 }
+
 
                 // Tronqueer tekst als deze te lang is voor de LLM
                 if (extractedText.Length > MAX_TEXT_LENGTH_FOR_LLM)
@@ -527,14 +531,14 @@ namespace AI_FileOrganizer2
                 }
 
                 string llmCategoryChoice = await _aiService.ClassifyCategoryAsync(
-                    extractedText,
-                    FOLDER_CATEGORIES.Keys.ToList(),
-                    providerName,        // Dit is de 'string provider' parameter
-                    apiKey,              // Dit is de 'string apiKey' parameter
-                    currentAiProvider,   // Dit is de 'IAiProvider aiProvider' parameter
-                    selectedModel,       // Dit is de 'string modelName' parameter
-                    cancellationToken    // Dit is de 'CancellationToken cancellationToken' parameter
-                );
+    extractedText,
+    FOLDER_CATEGORIES.Keys.ToList(),
+    providerName,      // Gebruikt in de prompt (niet voor AI-aanroep)
+    currentAiProvider, // Wordt gebruikt om de AI-call uit te voeren
+    selectedModel,
+    cancellationToken
+);
+
 
                 if (!string.IsNullOrWhiteSpace(llmCategoryChoice))
                 {
@@ -753,6 +757,185 @@ namespace AI_FileOrganizer2
             {
                 MessageBox.Show($"Kan link niet openen: {ex.Message}", "Fout", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+        private async void btnRenameSingleFile_Click(object sender, EventArgs e)
+        {
+            SetUiEnabled(false); // Schakel UI uit tijdens verwerking
+            btnStopOrganization.Enabled = false; // Stop-knop is niet relevant voor single file rename
+            btnSaveLog.Enabled = false; // Log-opslaan is niet direct relevant tot het klaar is
+
+            string apiKey = txtApiKey.Text;
+            if  (string.IsNullOrWhiteSpace(apiKey) || (txtApiKey.Tag != null && apiKey == txtApiKey.Tag.ToString()))
+
+                {
+                    _logger.Log("FOUT: Gelieve een geldige API Key in te vullen.");
+                SetUiEnabled(true); return;
+            }
+
+            string selectedModel = cmbModelSelection.SelectedItem?.ToString() ?? "gemini-1.5-pro-latest";
+            string providerName = cmbProviderSelection.SelectedItem?.ToString() ?? "Gemini (Google)";
+            string azureEndpoint = txtAzureEndpoint?.Text;
+
+            IAiProvider currentAiProvider = null;
+            try
+            {
+                switch (providerName)
+                {
+                    case "Gemini (Google)":
+                        currentAiProvider = new GeminiAiProvider(apiKey, _httpClient);
+                        break;
+                    case "OpenAI (openai.com)":
+                        currentAiProvider = new OpenAiProvider(apiKey);
+                        break;
+                    case "Azure OpenAI":
+                        currentAiProvider = new AzureOpenAiProvider(azureEndpoint, apiKey);
+                        break;
+                    default:
+                        _logger.Log($"FOUT: Onbekende AI-provider geselecteerd: {providerName}. Kan bestand niet hernoemen.");
+                        SetUiEnabled(true); return;
+                }
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.Log($"FOUT: Configuratieprobleem voor AI-provider '{providerName}': {ex.Message}. Kan bestand niet hernoemen.");
+                SetUiEnabled(true); return;
+            }
+
+            using (var dialog = new CommonOpenFileDialog())
+            {
+                dialog.IsFolderPicker = false; // Selecteer een bestand, geen map
+                dialog.EnsureFileExists = true; // Zorg dat het bestand bestaat
+                dialog.Multiselect = false; // Alleen één bestand tegelijk
+                dialog.Title = "Selecteer een bestand om te hernoemen";
+
+                // Voeg filters toe voor ondersteunde bestandstypen
+                dialog.Filters.Add(new CommonFileDialogFilter("Ondersteunde bestanden", "*.pdf;*.docx;*.txt;*.md"));
+                dialog.Filters.Add(new CommonFileDialogFilter("PDF Bestanden", "*.pdf"));
+                dialog.Filters.Add(new CommonFileDialogFilter("Word Documenten", "*.docx"));
+                dialog.Filters.Add(new CommonFileDialogFilter("Tekst Bestanden", "*.txt;*.md"));
+                dialog.Filters.Add(new CommonFileDialogFilter("Alle Bestanden", "*.*"));
+
+                dialog.InitialDirectory = txtSourceFolder.Text; // Begin in de bronmap
+                dialog.RestoreDirectory = true;
+
+                if (dialog.ShowDialog() == CommonFileDialogResult.Ok)
+                {
+                    string filePath = dialog.FileName;
+                    FileInfo fileInfo = new FileInfo(filePath);
+
+                    _logger.Log($"\n[BESTAND] Voorbereiden van hernoemen voor: {fileInfo.Name}");
+
+                    try
+                    {
+                        string extractedText = _textExtractionService.ExtractText(filePath);
+                        if (string.IsNullOrWhiteSpace(extractedText))
+                        {
+                            _logger.Log($"INFO: Geen zinvolle tekst geëxtraheerd uit {fileInfo.Name}. Gebruik bestandsnaam als context.");
+                            extractedText = fileInfo.Name;
+                        }
+                        if (extractedText.Length > MAX_TEXT_LENGTH_FOR_LLM)
+                        {
+                            _logger.Log($"WAARSCHUWING: Tekstlengte voor '{fileInfo.Name}' overschrijdt {MAX_TEXT_LENGTH_FOR_LLM} tekens. Tekst wordt afgekapt.");
+                            extractedText = extractedText.Substring(0, MAX_TEXT_LENGTH_FOR_LLM);
+                        }
+
+                        _logger.Log($"INFO: AI-bestandsnaam genereren voor '{fileInfo.Name}'...");
+                        string suggestedNewBaseName = await _aiService.SuggestFileNameAsync(
+                            extractedText,
+                            fileInfo.Name,
+                            currentAiProvider,
+                            selectedModel,
+                            _cancellationTokenSource.Token // Gebruik de bestaande CancellationTokenSource
+                        );
+
+                        string newFileName = fileInfo.Name; // Standaard de originele naam
+
+                        using (var renameForm = new FormRenameFile(fileInfo.Name, suggestedNewBaseName + fileInfo.Extension))
+                        {
+                            if (renameForm.ShowDialog() == DialogResult.OK)
+                            {
+                                if (renameForm.SkipFile)
+                                {
+                                    _logger.Log($"INFO: Gebruiker koos om '{fileInfo.Name}' niet te hernoemen. Geen actie ondernomen.");
+                                }
+                                else
+                                {
+                                    string proposedFullName = renameForm.NewFileName;
+                                    string proposedBaseName = Path.GetFileNameWithoutExtension(proposedFullName);
+                                    string proposedExtension = Path.GetExtension(proposedFullName);
+
+                                    if (string.IsNullOrEmpty(proposedExtension))
+                                    {
+                                        proposedFullName = proposedBaseName + fileInfo.Extension;
+                                    }
+                                    else if (proposedExtension.ToLower() != fileInfo.Extension.ToLower())
+                                    {
+                                        _logger.Log($"WAARSCHUWING: Bestandsnaam '{proposedFullName}' heeft afwijkende extensie. Originele extensie '{fileInfo.Extension}' behouden.");
+                                        proposedFullName = proposedBaseName + fileInfo.Extension;
+                                    }
+
+                                    newFileName = FileUtils.SanitizeFileName(proposedFullName);
+
+                                    string baseNameWithoutExt = Path.GetFileNameWithoutExtension(newFileName);
+                                    string extension = Path.GetExtension(newFileName);
+                                    if (baseNameWithoutExt.Length > MAX_FILENAME_LENGTH)
+                                    {
+                                        baseNameWithoutExt = baseNameWithoutExt.Substring(0, MAX_FILENAME_LENGTH);
+                                        newFileName = baseNameWithoutExt + extension;
+                                        _logger.Log($"WAARSCHUWING: Nieuwe bestandsnaam te lang. Afgekapt naar '{newFileName}'.");
+                                    }
+
+                                    if (newFileName != fileInfo.Name)
+                                    {
+                                        string destinationFilePath = Path.Combine(Path.GetDirectoryName(filePath), newFileName);
+
+                                        if (File.Exists(destinationFilePath))
+                                        {
+                                            string baseNameConflict = Path.GetFileNameWithoutExtension(newFileName);
+                                            string extensionConflict = Path.GetExtension(newFileName);
+                                            int counter = 1;
+                                            string uniqueDestinationFilePath = destinationFilePath;
+                                            while (File.Exists(uniqueDestinationFilePath))
+                                            {
+                                                uniqueDestinationFilePath = Path.Combine(Path.GetDirectoryName(filePath), $"{baseNameConflict}_{counter}{extensionConflict}");
+                                                counter++;
+                                            }
+                                            _logger.Log($"INFO: Bestand '{newFileName}' bestaat al. Hernoemd naar '{Path.GetFileName(uniqueDestinationFilePath)}' om conflict te voorkomen.");
+                                            destinationFilePath = uniqueDestinationFilePath;
+                                        }
+
+                                        File.Move(filePath, destinationFilePath);
+                                        _logger.Log($"OK: '{fileInfo.Name}' hernoemd naar '{Path.GetFileName(destinationFilePath)}'.");
+                                    }
+                                    else
+                                    {
+                                        _logger.Log($"INFO: AI-suggestie was gelijk aan origineel of ongeldig na opschonen. '{fileInfo.Name}' niet hernoemd.");
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                _logger.Log($"INFO: Hernoem-actie voor '{fileInfo.Name}' geannuleerd door gebruiker. Geen actie ondernomen.");
+                            }
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        _logger.Log("Hernoem-actie geannuleerd.");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.Log($"FOUT: Fout bij hernoemen van {fileInfo.Name}: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    _logger.Log("Bestandselectie geannuleerd. Geen bestand hernoemd.");
+                }
+            }
+            _logger.Log("\nEnkel bestand hernoemen voltooid.");
+            SetUiEnabled(true); // Schakel UI weer in
+            btnSaveLog.Enabled = true; // Log opslaan weer mogelijk
         }
     }
 }

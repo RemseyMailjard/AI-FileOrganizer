@@ -4,8 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Text; // Voor StringBuilder
 using UglyToad.PdfPig;
-using UglyToad.PdfPig.Content; // Voor Page, Letter, Word, TextBlock
-using UglyToad.PdfPig.Exceptions; // Voor PdfDocumentFormationException (of PdfDocumentException)
 using UglyToad.PdfPig.DocumentLayoutAnalysis.PageSegmenter; // Voor DocstrumBoundingBoxes
 using UglyToad.PdfPig.DocumentLayoutAnalysis.ReadingOrderDetector; // Voor UnsupervisedReadingOrderDetector
 using UglyToad.PdfPig.DocumentLayoutAnalysis.WordExtractor; // Voor NearestNeighbourWordExtractor

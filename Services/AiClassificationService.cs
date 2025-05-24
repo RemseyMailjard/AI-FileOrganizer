@@ -16,10 +16,6 @@ namespace AI_FileOrganizer2.Services
 {
     public class AiClassificationService
     {
-        // Deze constanten zijn nu overbodig hier, ze horen bij de GeminiAiProvider
-        // private const string GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/";
-        // private static readonly HttpClient _httpClient = new HttpClient();
-
         private const string DEFAULT_FALLBACK_CATEGORY = "Overig";
 
         // Nieuwe constanten voor de AI-parameters, per taak
@@ -32,20 +28,19 @@ namespace AI_FileOrganizer2.Services
         private const int FILENAME_MAX_TOKENS = 30;
         private const float FILENAME_TEMPERATURE = 0.3f; // Nog iets hoger voor creativiteit
 
-
+            
         // ======= Publieke AI-methodes =======
 
         public async Task<string> ClassifyCategoryAsync(
             string textToClassify,
             List<string> categories,
-            string provider,
-            string apiKey,
-            IAiProvider aiProvider, // Hier wordt de AI-provider nu doorgegeven
+            IAiProvider aiProvider, // Hier wordt ALLEEN de IAiProvider doorgegeven
             string modelName,
             CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(textToClassify))
                 return DEFAULT_FALLBACK_CATEGORY;
+  
 
             var categoryListForPrompt = string.Join("\n", categories.Select(cat => $"- {cat}"));
             var prompt = $@"
