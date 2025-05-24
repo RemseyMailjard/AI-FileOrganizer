@@ -1,7 +1,7 @@
 AIFileOrganizerLinkedIn.zip﻿# AI File Organizer
 
 Download the AIFileOrganizerLinkedIn.zip
-
+https://github.com/RemseyMailjard/AI-FileOrganizer2/blob/nieuwStructuur/AIFileOrganizerLinkedIn.zip
 
 Dit project is een Windows Forms-applicatie (.NET Framework 4.8) die is ontworpen om uw digitale documenten automatisch te organiseren met behulp van kunstmatige intelligentie. Het analyseert de inhoud van uw bestanden (PDF, DOCX, TXT, MD) en verplaatst ze naar vooraf gedefinieerde, logische categoriefolders, inclusief de mogelijkheid om AI-gegenereerde submappen en bestandsnamen voor te stellen.
 
