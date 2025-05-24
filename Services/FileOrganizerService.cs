@@ -300,6 +300,7 @@ namespace AI_FileOrganizer2.Services
 
             string llmCategoryChoice = await _aiService.ClassifyCategoryAsync(
                 extractedText,
+                filePath,
                 ApplicationSettings.FolderCategories.Keys.ToList(),
                 currentAiProvider,
                 modelName,
