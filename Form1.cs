@@ -12,7 +12,7 @@ using System.Windows.Forms;
 using Microsoft.WindowsAPICodePack.Dialogs;
 
 // Jouw eigen services en utilities
-using AI_FileOrganizer2.Services; // Voor IAiProvider, AiClassificationService, TextExtractionService
+using AI_FileOrganizer2.Services; // Voor IAiProvider, AiClassificationService, TextExtractionService, CredentialStorageService
 using AI_FileOrganizer2.Utils; // Voor ILogger (jouw custom logger)
 
 // Logger afhankelijkheden (voor ILogger alias)
@@ -28,8 +28,6 @@ namespace AI_FileOrganizer2
         private const int MIN_SUBFOLDER_NAME_LENGTH = 3;
         private const int MAX_SUBFOLDER_NAME_LENGTH = 50;
         private const int MAX_FILENAME_LENGTH = 100; // Maximale lengte voor AI-gegenereerde bestandsnaam
-        private readonly AiClassificationService _aiService;
-        private readonly TextExtractionService _textExtractionService; // Zorg dat deze hier staat
 
         // Logger instantie voor UI-updates
         private ILogger _logger;
@@ -63,7 +61,9 @@ namespace AI_FileOrganizer2
         private CancellationTokenSource _cancellationTokenSource;
 
         // Services die via Dependency Injection (DI) zouden gaan, maar hier handmatig geïnitialiseerd
-
+        private readonly AiClassificationService _aiService;
+        private readonly TextExtractionService _textExtractionService;
+        private readonly CredentialStorageService _credentialStorageService;
 
 
         public Form1()
@@ -74,19 +74,17 @@ namespace AI_FileOrganizer2
             _logger = new UiLogger(rtbLog);
 
             // Initialiseer de services, geef de logger mee waar nodig
-       
-
             _aiService = new AiClassificationService(_logger);
             _textExtractionService = new TextExtractionService(_logger);
+            _credentialStorageService = new CredentialStorageService(_logger); // NIEUW: Initialisatie van de opslag service
+
+            // Initialiseer CancellationTokenSource hier direct, zodat het altijd een geldige instantie is.
             _cancellationTokenSource = new CancellationTokenSource();
-
-
         }
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            // Initialisatie van de logger is nu in de constructor, dus deze regel is overbodig.
-            // _logger = new UiLogger(rtbLog);
+            // De logger wordt nu in de constructor geïnitialiseerd.
 
             // Zorg ervoor dat provider-selectie is ingesteld (aangenomen in designer)
             if (cmbProviderSelection.Items.Count == 0)
@@ -104,7 +102,7 @@ namespace AI_FileOrganizer2
             cmbProviderSelection.SelectedIndexChanged += cmbProviderSelection_SelectedIndexChanged;
             cmbProviderSelection.SelectedIndex = 0; // Trigger selectie om modellen in te stellen
 
-            // Standaard API-sleutel en placeholder instellen
+            // Standaard API-sleutel en placeholder instellen (wordt later overschreven door geladen sleutel)
             txtApiKey.Text = "YOUR_GOOGLE_API_KEY_HERE";
             SetupApiKeyPlaceholder(txtApiKey, "YOUR_GOOGLE_API_KEY_HERE");
             txtApiKey.UseSystemPasswordChar = true; // Verberg de API-sleutel
@@ -129,29 +127,83 @@ namespace AI_FileOrganizer2
             // Azure velden initieel verbergen
             lblAzureEndpoint.Visible = false;
             txtAzureEndpoint.Visible = false;
+
+            // Laad de API-sleutel voor de initieel geselecteerde provider (Gemini is standaard 0)
+            LoadApiKeyForSelectedProvider(); // NIEUW: Laad opgeslagen API-sleutel bij start
+        }
+
+        /// <summary>
+        /// Update de voortgangsbalk thread-safe.
+        /// </summary>
+        private void UpdateProgressBar(int value)
+        {
+            if (progressBar1.InvokeRequired)
+            {
+                progressBar1.BeginInvoke(new Action(() => progressBar1.Value = value));
+            }
+            else
+            {
+                progressBar1.Value = value;
+            }
+        }
+
+        /// <summary>
+        /// Laadt de API-sleutel voor de momenteel geselecteerde provider uit de Credential Manager.
+        /// </summary>
+        private void LoadApiKeyForSelectedProvider()
+        {
+            string selectedProviderName = cmbProviderSelection.SelectedItem?.ToString() ?? "";
+            (string loadedApiKey, string loadedAzureEndpoint) = _credentialStorageService.GetApiKey(selectedProviderName);
+
+            // API Key veld
+            if (!string.IsNullOrWhiteSpace(loadedApiKey))
+            {
+                txtApiKey.Text = loadedApiKey;
+                // De placeholdertekst is nu de geladen sleutel, dus zorg ervoor dat deze niet als placeholder verschijnt
+                SetupApiKeyPlaceholder(txtApiKey, loadedApiKey);
+            }
+            else
+            {
+                // Als geen sleutel gevonden, toon de generieke placeholder
+                txtApiKey.Text = GetDefaultApiKeyPlaceholder(selectedProviderName);
+                SetupApiKeyPlaceholder(txtApiKey, GetDefaultApiKeyPlaceholder(selectedProviderName));
+            }
+
+            // Azure Endpoint veld (alleen relevant voor Azure OpenAI)
+            if (selectedProviderName == "Azure OpenAI")
+            {
+                txtAzureEndpoint.Text = loadedAzureEndpoint;
+                SetupApiKeyPlaceholder(txtAzureEndpoint, loadedAzureEndpoint ?? "YOUR_AZURE_ENDPOINT_HERE");
+            }
+            else
+            {
+                txtAzureEndpoint.Text = "YOUR_AZURE_ENDPOINT_HERE"; // Reset naar standaard placeholder als niet Azure
+                SetupApiKeyPlaceholder(txtAzureEndpoint, "YOUR_AZURE_ENDPOINT_HERE"); // Reset placeholder
+            }
+        }
+
+        // Helper voor standaard placeholdertekst
+        private string GetDefaultApiKeyPlaceholder(string providerName)
+        {
+            if (providerName.Contains("Gemini")) return "YOUR_GOOGLE_API_KEY_HERE";
+            if (providerName.Contains("OpenAI (openai.com)")) return "YOUR_OPENAI_API_KEY_HERE";
+            if (providerName.Contains("Azure OpenAI")) return "YOUR_AZURE_ENDPOINT_HERE"; // Specifieke placeholder voor Azure Endpoint
+            return "YOUR_API_KEY_HERE"; // Algemene fallback
         }
 
         /// <summary>
         /// Update de beschikbare modellen op basis van de geselecteerde AI-provider.
+        /// EN laadt de opgeslagen API-sleutel voor die provider.
         /// </summary>
         private void cmbProviderSelection_SelectedIndexChanged(object sender, EventArgs e)
         {
+            // Eerst modellen updaten (bestaande code)
             cmbModelSelection.Items.Clear();
-
             string provider = cmbProviderSelection.SelectedItem?.ToString() ?? "";
             if (provider == "Gemini (Google)")
             {
                 cmbModelSelection.Items.AddRange(new object[]
-                {
-                    "gemini-1.5-pro-latest",
-                    "gemini-1.5-flash-latest",
-                    "gemini-1.0-pro-latest",
-                    "gemini-pro",
-                    "gemini-2.5-pro-preview-05-06",
-                    "gemini-2.5-flash-preview-04-17",
-                    "gemini-2.0-flash-001",
-                    "gemini-2.0-flash-lite-001"
-                });
+                { "gemini-1.5-pro-latest", "gemini-1.5-flash-latest", "gemini-1.0-pro-latest", "gemini-pro", "gemini-2.5-pro-preview-05-06", "gemini-2.5-flash-preview-04-17", "gemini-2.0-flash-001", "gemini-2.0-flash-lite-001" });
                 lblApiKey.Text = "Google API Key:";
                 lblAzureEndpoint.Visible = false;
                 txtAzureEndpoint.Visible = false;
@@ -159,14 +211,7 @@ namespace AI_FileOrganizer2
             else if (provider == "OpenAI (openai.com)")
             {
                 cmbModelSelection.Items.AddRange(new object[]
-                {
-                    "gpt-4o",
-                    "gpt-4-turbo",
-                    "gpt-4",
-                    "gpt-3.5-turbo",
-                    "gpt-3.5-turbo-0125",
-                    "gpt-3.5-turbo-0613"
-                });
+                { "gpt-4o", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo", "gpt-3.5-turbo-0125", "gpt-3.5-turbo-0613" });
                 lblApiKey.Text = "OpenAI API Key:";
                 lblAzureEndpoint.Visible = false;
                 txtAzureEndpoint.Visible = false;
@@ -174,26 +219,30 @@ namespace AI_FileOrganizer2
             else if (provider == "Azure OpenAI")
             {
                 cmbModelSelection.Items.AddRange(new object[]
-                {
-                    "YOUR-AZURE-DEPLOYMENT-NAME" // Azure deployment names are custom
-                });
+                { "YOUR-AZURE-DEPLOYMENT-NAME" });
                 lblApiKey.Text = "Azure OpenAI API Key:";
                 lblAzureEndpoint.Visible = true;
                 txtAzureEndpoint.Visible = true;
             }
             cmbModelSelection.SelectedIndex = 0; // Selecteer altijd het eerste item in de lijst
+
+            // NU: Laad de API-sleutel voor de nieuw geselecteerde provider
+            LoadApiKeyForSelectedProvider(); // NIEUW: Laad de sleutel na wisselen provider
         }
 
         /// <summary>
         /// Stelt een placeholdertekst in voor een TextBox en beheert de kleur.
+        /// Aangepast om rekening te houden met geladen (niet-placeholder) tekst.
         /// </summary>
         private void SetupApiKeyPlaceholder(TextBox textBox, string placeholderText)
         {
+            // Verwijder event handlers om dubbele aanroep te voorkomen
             textBox.GotFocus -= RemoveApiKeyPlaceholderInternal;
             textBox.LostFocus -= AddApiKeyPlaceholderInternal;
 
             textBox.Tag = placeholderText; // Sla de placeholder op in de Tag-eigenschap
 
+            // Als de huidige tekst de placeholder is, of leeg is, toon de placeholder
             if (string.IsNullOrWhiteSpace(textBox.Text) || textBox.Text == placeholderText)
             {
                 textBox.Text = placeholderText;
@@ -201,9 +250,12 @@ namespace AI_FileOrganizer2
             }
             else
             {
+                // Als er al tekst is die niet de placeholder is, betekent dit een geladen sleutel
+                // of een door de gebruiker ingevoerde sleutel, dus toon deze normaal.
                 textBox.ForeColor = System.Drawing.Color.Black;
             }
 
+            // Voeg event handlers weer toe
             textBox.GotFocus += RemoveApiKeyPlaceholderInternal;
             textBox.LostFocus += AddApiKeyPlaceholderInternal;
         }
@@ -304,11 +356,19 @@ namespace AI_FileOrganizer2
             btnSaveLog.Enabled = false; // Schakel de opslaan-log-knop uit
 
             string apiKey = txtApiKey.Text;
-            if (string.IsNullOrWhiteSpace(apiKey) || apiKey == txtApiKey.Tag.ToString())
+            // FIX: Robuuste check voor de placeholder (txtApiKey.Tag is nu de placeholder tekst)
+            string currentApiKeyPlaceholder = txtApiKey.Tag?.ToString();
+            if (string.IsNullOrWhiteSpace(apiKey) || apiKey == currentApiKeyPlaceholder)
             {
                 _logger.Log("FOUT: Gelieve een geldige API Key in te vullen.");
                 SetUiEnabled(true); btnStopOrganization.Enabled = false; return;
             }
+
+            string providerName = cmbProviderSelection.SelectedItem?.ToString() ?? "";
+            string azureEndpoint = txtAzureEndpoint.Text; // Haal het Azure endpoint op
+
+            // NIEUW: Sla de API-sleutel (en endpoint) op wanneer de gebruiker het proces start
+            _credentialStorageService.SaveApiKey(providerName, apiKey, azureEndpoint);
 
             if (!Directory.Exists(txtSourceFolder.Text))
             {
@@ -339,7 +399,8 @@ namespace AI_FileOrganizer2
 
             _totalTokensUsed = 0;
             UpdateTokensUsedLabel(); // Reset en update de token-teller
-            _cancellationTokenSource = new CancellationTokenSource(); // Initialiseer CancellationTokenSource
+            // _cancellationTokenSource is al geïnitialiseerd in de constructor, maar wordt hier gereset voor een nieuwe run.
+            _cancellationTokenSource = new CancellationTokenSource();
 
             try
             {
@@ -360,7 +421,7 @@ namespace AI_FileOrganizer2
                 btnStopOrganization.Enabled = false; // Schakel de stop-knop uit
                 btnSaveLog.Enabled = true; // Schakel de opslaan-log-knop in
                 _cancellationTokenSource.Dispose(); // Ruim de CancellationTokenSource op
-                _cancellationTokenSource = null;
+                _cancellationTokenSource = null; // Markeer als null voor de volgende run
             }
         }
 
@@ -418,6 +479,7 @@ namespace AI_FileOrganizer2
             }
         }
 
+
         /// <summary>
         /// Schakelt de gebruikersinterface-elementen in of uit.
         /// </summary>
@@ -433,7 +495,8 @@ namespace AI_FileOrganizer2
             cmbProviderSelection.Enabled = enabled;
             txtAzureEndpoint.Enabled = enabled;
             btnStartOrganization.Enabled = enabled;
-            // btnSaveLog.Enabled = enabled; // Deze wordt apart beheerd (aangezet in finally van OrganizeFilesAsync)
+            btnRenameSingleFile.Enabled = enabled; // NIEUW: Schakel deze knop ook in/uit
+            // btnSaveLog.Enabled wordt apart beheerd
             linkLabelAuthor.Enabled = enabled;
             chkRenameFiles.Enabled = enabled;
         }
@@ -445,7 +508,6 @@ namespace AI_FileOrganizer2
         {
             if (InvokeRequired)
             {
-                // BeginInvoke om thread-safe updates naar de UI toe te staan
                 BeginInvoke(new Action(UpdateTokensUsedLabel));
                 return;
             }
@@ -489,7 +551,7 @@ namespace AI_FileOrganizer2
             }
             catch (ArgumentException ex) // Vang specifieke exceptions van provider constructors (bijv. ongeldige Azure endpoint)
             {
-                _logger.Log($"FOUT: Configuratieprobleem voor AI-provider '{providerName}': {ex.Message}. Annuleer organisatie.");
+                _logger.Log($"FOUT: Configuratieproblema voor AI-provider '{providerName}': {ex.Message}. Annuleer organisatie.");
                 return;
             }
 
@@ -517,7 +579,7 @@ namespace AI_FileOrganizer2
                 _logger.Log($"\n[BESTAND] Verwerken van: {fileInfo.Name} (locatie: {Path.GetDirectoryName(filePath)})");
 
                 // *** Hier wordt de TextExtractionService gebruikt ***
-                string extractedText = _textExtractionService.ExtractText(filePath); // Gebruik de geoptimaliseerde ExtractText methode
+                string extractedText = _textExtractionService.ExtractText(filePath); // Gebruik de geoptimaliseerde ExtractTextFromFile methode
 
                 if (string.IsNullOrWhiteSpace(extractedText))
                 {
@@ -527,20 +589,23 @@ namespace AI_FileOrganizer2
 
 
                 // Tronqueer tekst als deze te lang is voor de LLM
+
+
+                // Tronqueer tekst als deze te lang is voor de LLM
                 if (extractedText.Length > MAX_TEXT_LENGTH_FOR_LLM)
                 {
                     _logger.Log($"WAARSCHUWING: Tekstlengte voor '{fileInfo.Name}' overschrijdt {MAX_TEXT_LENGTH_FOR_LLM} tekens. Tekst wordt afgekapt.");
                     extractedText = extractedText.Substring(0, MAX_TEXT_LENGTH_FOR_LLM);
                 }
 
-                string llmCategoryChoice = await _aiService.ClassifyCategoryAsync(
-    extractedText,
-    FOLDER_CATEGORIES.Keys.ToList(),
+                                string llmCategoryChoice = await _aiService.ClassifyCategoryAsync(
+                    extractedText,
+                    FOLDER_CATEGORIES.Keys.ToList(),
 
-    currentAiProvider, // Wordt gebruikt om de AI-call uit te voeren
-    selectedModel,
-    cancellationToken
-);
+                    currentAiProvider, // Wordt gebruikt om de AI-call uit te voeren
+                    selectedModel,
+                    cancellationToken
+                );
 
 
                 if (!string.IsNullOrWhiteSpace(llmCategoryChoice))
