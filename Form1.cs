@@ -78,6 +78,7 @@ namespace AI_FileOrganizer2
 
             _aiService = new AiClassificationService(_logger);
             _textExtractionService = new TextExtractionService(_logger);
+            _cancellationTokenSource = new CancellationTokenSource();
 
 
         }
