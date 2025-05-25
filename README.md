@@ -15,9 +15,6 @@ Voor iedereen die snel en moeiteloos orde wil scheppen in een grote verzameling 
 
 [▶️ Bekijk de video-demo (MP4)](Media/AIFileOrganizer_CompleteWalkthrough.mp4)
 
-![Mappenstructuur GIF](https://github.com/RemseyMailjard/PersoonlijkeMappenGenerator/raw/main/PersoonlijkeMappenStructuurGenerator.gif)
-
----
 
 ## 📋 Functies
 
@@ -29,7 +26,6 @@ Voor iedereen die snel en moeiteloos orde wil scheppen in een grote verzameling 
 - **Flexibel:** Mogelijkheid om het organisatieproces op elk moment te annuleren.
 
 ---
-
 ## 📌 Vereisten
 
 - Windows 10 of hoger
