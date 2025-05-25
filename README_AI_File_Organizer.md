@@ -3,6 +3,11 @@
 
 Een slimme en gebruiksvriendelijke applicatie voor het automatisch ordenen en hernoemen van bestanden met behulp van geavanceerde AI-modellen zoals Gemini, OpenAI en Azure OpenAI.
 
+## Installatie
+Download de laatste versie van de installer uit de `installer` folder:
+[installer/AIFileOrganizerSetup.exe](installer/AIFileOrganizerSetup.exe)
+
+
 ## 📌 Vereisten
 
 - Windows 10 of hoger
