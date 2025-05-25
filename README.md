@@ -1,19 +1,32 @@
 # AI File Organizer 🚀
 
-Een slimme applicatie die je digitale documenten **automatisch organiseert en hernoemt** met AI (Gemini, OpenAI, Azure OpenAI).
+**AI File Organizer** is een slimme Windows-applicatie die jouw documenten automatisch organiseert en hernoemt met behulp van krachtige AI-modellen (Gemini, OpenAI, Azure OpenAI).  Selecteer eenvoudig je bronmap en doelmap, kies een AI-provider, en de applicatie doet het werk voor je! 
 
 ![AI File Organizer Demo](Media/AIFileOrganizer_Demo.gif)
 
-**Geen zin meer in handmatig sorteren?**  
+ 
+
+Deze applicatie scant, analyseert en organiseert je bestanden (PDF, DOCX, TXT, MD) automatisch in logische categorieën en submappen – volledig op basis van de inhoud. Daarnaast doet de app slimme suggesties voor duidelijke bestandsnamen, zodat je digitale archief altijd netjes blijft.
 Met AI File Organizer bespaar je tijd, houd je overzicht en regelt AI al het organiseerwerk voor je.
 
-👉 Bekijk de volledige walkthrough:
+**Voor wie?**  
+Voor iedereen die snel en moeiteloos orde wil scheppen in een grote verzameling digitale documenten – van thuisadministratie tot kleine bedrijven en zzp’ers.
+> **Let op:** Zorg dat billing/tegoed geactiveerd is bij je AI-provider (Gemini, OpenAI of Azure OpenAI).
 
-[▶️ Bekijk de video-demo (MP4)](Media/AIFileOrganizer_CompleteWalkthrough.mp4)
 
-![Mappenstructuur GIF](https://github.com/RemseyMailjard/PersoonlijkeMappenGenerator/raw/main/PersoonlijkeMappenStructuurGenerator.gif)
 
----
+## ⚡ Alleen een mappen generator nodig?
+
+Wil je **niet de volledige Windows-applicatie**, maar gewoon snel een persoonlijke mappenstructuur aanmaken?  
+Gebruik dan de losse **Persoonlijke Mappen Generator**:
+
+➡️ **[Download PersoonlijkeMappenStructuurGenerator.exe](https://github.com/RemseyMailjard/AI-FileOrganizer/raw/master/PersoonlijkeMappenGenerator/PersoonlijkeMappenStructuurGenerator.exe)**
+
+1. Klik op de bovenstaande link om het EXE-bestand direct te downloaden.
+2. Open het gedownloade bestand en volg de instructies om je mappenstructuur te genereren op je eigen computer.
+
+> ℹ️ Geen installatie nodig — direct starten!
+
 
 ## 📋 Functies
 
@@ -25,7 +38,6 @@ Met AI File Organizer bespaar je tijd, houd je overzicht en regelt AI al het org
 - **Flexibel:** Mogelijkheid om het organisatieproces op elk moment te annuleren.
 
 ---
-
 ## 📌 Vereisten
 
 - Windows 10 of hoger
