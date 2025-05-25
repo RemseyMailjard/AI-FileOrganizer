@@ -12,6 +12,8 @@ Een slimme en gebruiksvriendelijke applicatie voor het automatisch ordenen en he
 
 ## 🚀 Installatie
 
+Download de zipfile hier en pak het uit. 
+https://github.com/RemseyMailjard/AI-FileOrganizer2/blob/nieuwStructuur/AIFileOrganizerLinkedIn.zip
 Volg onderstaande stappen om de applicatie te installeren:
 
 1. **Download** het installatiebestand (`setup.exe`) vanuit deze map.
