@@ -23,7 +23,7 @@
     <UpdatePeriodically>false</UpdatePeriodically>
     <UpdateRequired>false</UpdateRequired>
     <MapFileExtensions>true</MapFileExtensions>
-    <ApplicationRevision>2</ApplicationRevision>
+    <ApplicationRevision>3</ApplicationRevision>
     <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
     <UseApplicationTrust>false</UseApplicationTrust>
     <PublishWizardCompleted>true</PublishWizardCompleted>
@@ -303,6 +303,9 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
     <None Include="README.md" />
+    <None Include="README_AI_File_Organizer.md" />
+    <None Include="Scripts\PersoonlijkeMappenStructuurGenerator.bat" />
+    <None Include="Scripts\README.MD" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
@@ -320,5 +323,13 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup />
+  <ItemGroup>
+    <Content Include="Installer\AI-applicatie.txt" />
+    <Content Include="Installer\AI-FileOrganizer.exe" />
+    <Content Include="Installer\Installer.txt" />
+    <Content Include="Installer\MIT License %28MIT-licentie%29.txt" />
+    <Content Include="Scripts\map_structuur.txt" />
+    <Content Include="Scripts\PersoonlijkeMappenStructuurGenerator.exe" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

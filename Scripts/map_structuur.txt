@@ -1,0 +1,230 @@
+# =================================================================================
+#  Persoonlijke Mappenstructuur Definitiebestand (map_structuur.txt)
+# =================================================================================
+# Gebruik:
+# - Elke regel definieert een map relatief aan de gekozen hoofdmap.
+# - Gebruik een slash (/) als padscheidingsteken.
+# - Gebruik !TARGET_YEAR! voor het door de gebruiker opgegeven (of huidige) jaar.
+# - Gebruik !PREVIOUS_YEAR! voor het jaar vóór !TARGET_YEAR! (vooral voor archief).
+# - Regels die beginnen met # of rem worden genegeerd.
+# - Lege regels worden genegeerd.
+# ---------------------------------------------------------------------------------
+
+# --- 1. Financiën ---
+1. Financien
+1. Financien/Bankafschriften
+1. Financien/Bankafschriften/!TARGET_YEAR!
+1. Financien/Creditcard Afschriften
+1. Financien/Creditcard Afschriften/!TARGET_YEAR!
+1. Financien/Spaarrekeningen
+1. Financien/Beleggingen
+1. Financien/Beleggingen/!TARGET_YEAR! Transacties
+1. Financien/Beleggingen/Jaaroverzichten
+1. Financien/Leningen en Kredieten
+1. Financien/Budgetten en Uitgaven Tracking
+1. Financien/Facturen Betaald
+1. Financien/Facturen Betaald/!TARGET_YEAR!
+1. Financien/Cryptocurrency (indien van toepassing)
+
+# --- 2. Belastingen ---
+2. Belastingen
+2. Belastingen/Aangiften Inkomstenbelasting
+2. Belastingen/Aangiften Inkomstenbelasting/!TARGET_YEAR!
+2. Belastingen/Voorlopige Aanslagen
+2. Belastingen/Voorlopige Aanslagen/!TARGET_YEAR!
+2. Belastingen/Correspondentie Belastingdienst
+2. Belastingen/Correspondentie Belastingdienst/!TARGET_YEAR!
+2. Belastingen/Toeslagen (Zorg, Huur, etc.)
+2. Belastingen/Toeslagen/!TARGET_YEAR!
+2. Belastingen/Jaaropgaven Werkgevers
+2. Belastingen/Jaaropgaven Werkgevers/!TARGET_YEAR!
+2. Belastingen/Fiscale Documenten Banken en Beleggingen
+
+# --- 3. Verzekeringen ---
+3. Verzekeringen
+3. Verzekeringen/Zorgverzekering
+3. Verzekeringen/Zorgverzekering/!TARGET_YEAR! Polis en Declaraties
+3. Verzekeringen/Inboedel en Opstalverzekering
+3. Verzekeringen/Inboedel en Opstalverzekering/!TARGET_YEAR! Polis
+3. Verzekeringen/Aansprakelijkheidsverzekering (AVP)
+3. Verzekeringen/Aansprakelijkheidsverzekering (AVP)/!TARGET_YEAR! Polis
+3. Verzekeringen/Autoverzekering
+3. Verzekeringen/Autoverzekering/!TARGET_YEAR! Polis en Schadeclaims
+3. Verzekeringen/Reisverzekering
+3. Verzekeringen/Levensverzekering
+3. Verzekeringen/Uitvaartverzekering
+3. Verzekeringen/Overige Verzekeringen
+
+# --- 4. Woning ---
+4. Woning
+4. Woning/Koopakte of Huurcontract
+4. Woning/Hypotheekdocumenten
+4. Woning/Huuradministratie
+4. Woning/Huuradministratie/!TARGET_YEAR! Betalingen
+4. Woning/VvE Documenten (indien van toepassing)
+4. Woning/Nutsvoorzieningen (Energie, Water, Internet)
+4. Woning/Nutsvoorzieningen/!TARGET_YEAR! Facturen
+4. Woning/Gemeentelijke Heffingen (OZB, Afval)
+4. Woning/Gemeentelijke Heffingen/!TARGET_YEAR!
+4. Woning/Onderhoud en Reparaties
+4. Woning/Onderhoud en Reparaties/Facturen en Offertes
+4. Woning/Verbouwingen
+4. Woning/Inrichting en Apparatuur (Garanties, Handleidingen)
+
+# --- 5. Gezondheid ---
+5. Gezondheid
+5. Gezondheid/Medische dossiers (Huisarts, Specialist)
+5. Gezondheid/Uitslagen Onderzoeken
+5. Gezondheid/Recepten en Medicijnoverzichten
+5. Gezondheid/Vaccinatiebewijzen
+5. Gezondheid/Zorgdeclaraties Ingediend
+5. Gezondheid/Fitness en Welzijn
+
+# --- 6. Voertuigen (Auto, Motor, Fiets) ---
+6. Voertuigen
+6. Voertuigen/Aankoopdocumenten
+6. Voertuigen/Kentekenbewijzen
+6. Voertuigen/Onderhoudsrecords en Facturen
+6. Voertuigen/Onderhoudsrecords en Facturen/!TARGET_YEAR!
+6. Voertuigen/APK Keuringsrapporten
+6. Voertuigen/Verzekeringspolissen (zie ook map 3)
+6. Voertuigen/Wegenbelasting
+6. Voertuigen/Schadeclaims
+
+# --- 7. Carrière en Werk ---
+7. Carriere en Werk
+7. Carriere en Werk/CV en Sollicitatiebrieven
+7. Carriere en Werk/Arbeidscontracten
+7. Carriere en Werk/Salarisstroken
+7. Carriere en Werk/Salarisstroken/!TARGET_YEAR!
+7. Carriere en Werk/Beoordelingen en Functioneringsgesprekken
+7. Carriere en Werk/Certificaten en Diploma's (zie ook map 14)
+7. Carriere en Werk/Zakelijke Reiskosten Declaraties
+7. Carriere en Werk/Pensioendocumenten
+
+# --- 8. Reizen en Vakanties ---
+8. Reizen en Vakanties
+8. Reizen en Vakanties/!TARGET_YEAR! Bestemming 1
+8. Reizen en Vakanties/!TARGET_YEAR! Bestemming 2
+8. Reizen en Vakanties/Paspoortkopieën en Visa (zie ook map 17)
+8. Reizen en Vakanties/Tickets en Boekingsbevestigingen
+8. Reizen en Vakanties/Reisverzekeringsdocumenten (zie ook map 3)
+
+# --- 9. Hobby's en Interesses ---
+9. Hobby en Interesses
+9. Hobby en Interesses/Sport en Fitness
+9. Hobby en Interesses/Muziek
+9. Hobby en Interesses/Lezen (Boekenlijsten, Recensies)
+9. Hobby en Interesses/Koken en Recepten
+9. Hobby en Interesses/Fotografie (Projecten, Inspiratie - zie ook map 13)
+9. Hobby en Interesses/Creatieve Projecten
+9. Hobby en Interesses/YouTube Concepten
+
+# --- 10. Familie en Kinderen ---
+10. Familie en Kinderen
+10. Familie en Kinderen/Geboorteaktes
+10. Familie en Kinderen/School en Onderwijs (per kind)
+10. Familie en Kinderen/School en Onderwijs/Kind 1/!TARGET_YEAR! Rapporten
+10. Familie en Kinderen/Activiteiten en Vakanties (gezamenlijk)
+10. Familie en Kinderen/Medische Gegevens Kinderen (zie ook map 5)
+10. Familie en Kinderen/Belangrijke Correspondentie
+
+# --- 11. Digitale Bezittingen en Online Accounts ---
+11. Digitale Bezittingen
+11. Digitale Bezittingen/Wachtwoordbeheer (verwijzingen, geen wachtwoorden zelf!)
+11. Digitale Bezittingen/2FA Backup Codes (veilig opgeslagen)
+11. Digitale Bezittingen/Software Licenties en Sleutels
+11. Digitale Bezittingen/Domeinnamen en Hosting
+11. Digitale Bezittingen/Online Abonnementen Overzicht (zie ook map 12)
+11. Digitale Bezittingen/Backup Strategie en Logs
+
+# --- 12. Abonnementen en Lidmaatschappen ---
+12. Abonnementen en Lidmaatschappen
+12. Abonnementen en Lidmaatschappen/Streamingdiensten (Netflix, Spotify, etc.)
+12. Abonnementen en Lidmaatschappen/Kranten en Tijdschriften
+12. Abonnementen en Lidmaatschappen/Sportclub en Verenigingen
+12. Abonnementen en Lidmaatschappen/Software Abonnementen
+12. Abonnementen en Lidmaatschappen/Overige Abonnementen en Contracten
+
+# --- 13. Foto en Video ---
+13. Foto en Video
+13. Foto en Video/!TARGET_YEAR!
+13. Foto en Video/!TARGET_YEAR!/01 Januari
+13. Foto en Video/!TARGET_YEAR!/02 Februari
+13. Foto en Video/!TARGET_YEAR!/03 Maart
+13. Foto en Video/!TARGET_YEAR!/04 April
+13. Foto en Video/!TARGET_YEAR!/05 Mei
+13. Foto en Video/!TARGET_YEAR!/06 Juni
+13. Foto en Video/!TARGET_YEAR!/06 Juni/Graduatie (voorbeeld)
+13. Foto en Video/!TARGET_YEAR!/07 Juli
+13. Foto en Video/!TARGET_YEAR!/08 Augustus
+13. Foto en Video/!TARGET_YEAR!/09 September
+13. Foto en Video/!TARGET_YEAR!/10 Oktober
+13. Foto en Video/!TARGET_YEAR!/11 November
+13. Foto en Video/!TARGET_YEAR!/12 December
+13. Foto en Video/Speciale Gebeurtenissen (bruiloften, etc.)
+13. Foto en Video/Bewerkte Projecten
+
+# --- 14. Opleiding en Studie ---
+14. Opleiding en Studie
+14. Opleiding en Studie/Diploma's en Certificaten
+14. Opleiding en Studie/Cursusmateriaal
+14. Opleiding en Studie/Aantekeningen
+14. Opleiding en Studie/Projecten en Scripties
+14. Opleiding en Studie/Inschrijvingsbewijzen
+
+# --- 15. Juridische Documenten ---
+15. Juridisch
+15. Juridisch/Contracten en Overeenkomsten (niet werk/woning)
+15. Juridisch/Juridische Correspondentie
+15. Juridisch/Verkeersboetes en Afhandeling
+15. Juridisch/Testament en Erfrecht (zie ook Nalatenschap)
+15. Juridisch/Officiële Documenten Overheid (niet belasting)
+
+# --- 16. Nalatenschap en Uitvaart ---
+16. Nalatenschap
+16. Nalatenschap/Testament (kopie)
+16. Nalatenschap/Levenstestament (kopie)
+16. Nalatenschap/Wilsverklaringen
+16. Nalatenschap/Uitvaartwensen en Polis (zie ook Verzekeringen)
+16. Nalatenschap/Lijst Belangrijke Contacten
+16. Nalatenschap/Informatie Digitale Nalatenschap
+
+# --- 17. Noodinformatie en Identiteit ---
+17. Noodinformatie
+17. Noodinformatie/Kopieën Paspoort, ID-kaart, Rijbewijs
+17. Noodinformatie/ICE (In Case of Emergency) Contacten
+17. Noodinformatie/Medische Alert Informatie (allergieën, etc.)
+17. Noodinformatie/Bloedgroepkaart
+
+# --- 18. Huisinventaris en Bezittingen ---
+18. Huisinventaris
+18. Huisinventaris/Lijst van Bezittingen (voor verzekering)
+18. Huisinventaris/Foto's en Video's van Bezittingen
+18. Huisinventaris/Aankoopbewijzen en Garanties (waardevolle items)
+18. Huisinventaris/Taxatierapporten
+
+# --- 19. Persoonlijke Projecten en Ideeën ---
+19. Persoonlijke Projecten
+19. Persoonlijke Projecten/DIY Projecten (plannen, voortgang)
+19. Persoonlijke Projecten/Schrijfprojecten
+19. Persoonlijke Projecten/Side Hustle Ideeën en Planning
+19. Persoonlijke Projecten/Onderzoek en Notities
+
+# --- 20. Huisdieren ---
+20. Huisdieren
+20. Huisdieren/Dierenpaspoorten en Registratie
+20. Huisdieren/Vaccinatieboekjes
+20. Huisdieren/Dierenartsrekeningen en Dossiers
+20. Huisdieren/Verzekeringsdocumenten Huisdier
+20. Huisdieren/Aankoop- of Adoptiepapieren
+
+# --- 99. Archief ---
+99. Archief
+99. Archief/!PREVIOUS_YEAR!
+99. Archief/!PREVIOUS_YEAR!/Afgeronde Projecten
+99. Archief/!PREVIOUS_YEAR!/Oude Financiele Documenten
+99. Archief/!PREVIOUS_YEAR!/Overige Gearchiveerde Items
+rem Voorbeeld voor nog oudere archieven, handmatig toevoegen indien nodig:
+rem 99. Archief/!PREVIOUS_YEAR!-1
+rem 99. Archief/!PREVIOUS_YEAR!-2

@@ -1,0 +1,45 @@
+Installatie voltooid – Welkom bij AI File Organizer!
+
+Gefeliciteerd! De installatie van AI File Organizer is succesvol afgerond. Je bent nu klaar om je digitale documenten slimmer en sneller te organiseren.
+
+------------------------------------------------------------
+Eerste stap: API-key instellen
+
+1. Start AI File Organizer via het bureaublad of het Startmenu.
+2. Ga naar het veld “API Key” in het instellingenvenster.
+3. Voer jouw API-key in (en eventueel het endpoint voor Azure OpenAI).
+4. Selecteer de gewenste AI-provider en het model.
+5. Sla de instellingen op.
+
+Je kunt nu direct aan de slag!
+
+------------------------------------------------------------
+Bestanden toevoegen
+
+- Sleep bestanden naar het applicatievenster of gebruik “Bestanden toevoegen”.
+- Ondersteunde formaten: PDF, Word, tekstbestanden.
+- De AI helpt je automatisch met ordenen, hernoemen en mappenstructuren aanmaken.
+
+------------------------------------------------------------
+Tips voor optimaal gebruik
+
+- Gebruik duidelijke bestandsnamen voor betere herkenning.
+- Je kunt AI-suggesties accepteren of aanpassen.
+- Bekijk het logboek in de app voor een overzicht van alle acties.
+
+------------------------------------------------------------
+Privacy & veiligheid
+
+- Je API-sleutel wordt alleen lokaal opgeslagen.
+- Bestandsinhoud wordt alleen tijdelijk verstuurd voor AI-classificatie.
+- Er wordt niets gedeeld met derden.
+
+------------------------------------------------------------
+Hulp nodig?
+
+- Gebruik het Help-menu in de app.
+- Online ondersteuning: https://remsey.nl
+- Of stuur een bericht via LinkedIn: https://linkedin.com/in/remseymailjard
+
+Veel succes en plezier met organiseren!
+Team AI File Organizer
