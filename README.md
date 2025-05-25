@@ -11,9 +11,17 @@ Voor iedereen die snel en moeiteloos orde wil scheppen in een grote verzameling 
 
 ![AI File Organizer Demo](Media/AIFileOrganizer_Demo.gif)
 
-👉 Bekijk de volledige walkthrough:
+## ⚡ Alleen een mappen generator nodig?
 
-[▶️ Bekijk de video-demo (MP4)](Media/AIFileOrganizer_CompleteWalkthrough.mp4)
+Wil je **niet de volledige Windows-applicatie**, maar gewoon snel een persoonlijke mappenstructuur aanmaken?  
+Gebruik dan de losse **Persoonlijke Mappen Generator**:
+
+➡️ **[Download PersoonlijkeMappenStructuurGenerator.exe](https://github.com/RemseyMailjard/AI-FileOrganizer/raw/master/PersoonlijkeMappenGenerator/PersoonlijkeMappenStructuurGenerator.exe)**
+
+1. Klik op de bovenstaande link om het EXE-bestand direct te downloaden.
+2. Open het gedownloade bestand en volg de instructies om je mappenstructuur te genereren op je eigen computer.
+
+> ℹ️ Geen installatie nodig — direct starten!
 
 
 ## 📋 Functies
