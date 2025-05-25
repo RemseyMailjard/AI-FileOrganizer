@@ -1,8 +1,3 @@
-﻿# AI File Organizer
-
-![AI File Organizer Screenshot (voorbeeld - plaats hier een screenshot van je applicatie)](https://via.placeholder.com/800x450?text=Plaats+hier+een+screenshot+van+de+UI)
-
-
 # AI File Organizer 🚀
 
 ![AI File Organizer Screenshot](https://via.placeholder.com/800x450?text=Plaats+hier+een+screenshot+van+de+UI)
