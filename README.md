@@ -2,6 +2,131 @@
 
 ![AI File Organizer Screenshot (voorbeeld - plaats hier een screenshot van je applicatie)](https://via.placeholder.com/800x450?text=Plaats+hier+een+screenshot+van+de+UI)
 
+
+# AI File Organizer 🚀
+
+![AI File Organizer Screenshot](https://via.placeholder.com/800x450?text=Plaats+hier+een+screenshot+van+de+UI)
+
+Een slimme, gebruiksvriendelijke applicatie om je digitale documenten **automatisch te organiseren** en te hernoemen met behulp van AI (Gemini, OpenAI, Azure OpenAI).
+
+---
+
+## 📋 Functies
+
+- **AI-gestuurde classificatie:** Bestanden worden automatisch ingedeeld in slimme categorieën en submappen.
+- **AI-suggesties voor bestandsnamen:** Ontvang hernoem-voorstellen op basis van inhoud.
+- **Ondersteuning voor Gemini, OpenAI en Azure OpenAI.**
+- **Moderne en eenvoudige interface.**
+- **Uitgebreide logging en voortgangsweergave.**
+- **Drag & drop-bestanden en mapselectie.**
+
+---
+
+## 📌 Vereisten
+
+- Windows 10 of hoger
+- .NET Framework 4.8 (installatie wordt automatisch aangeboden)
+- Geldige API-key voor Gemini (Google), OpenAI of Azure OpenAI
+- Internetverbinding
+
+---
+
+## 📦 Installatie
+
+1. Download de installer uit de [`installer`](installer) folder:  
+   [AIFileOrganizerSetup.exe](installer/AIFileOrganizerSetup.exe)
+2. Dubbelklik op de `.exe` en volg de installatie-wizard.
+3. Start de applicatie via het bureaublad of Startmenu.
+
+> **Let op:** Tijdens installatie kan om administratorrechten worden gevraagd.
+
+---
+
+## 🗝️ API-key instellen
+
+1. Start **AI File Organizer**.
+2. Vul je API-key in (voor Gemini, OpenAI, of Azure).
+3. Voor Azure OpenAI: vul ook het endpoint in.
+4. Selecteer het gewenste AI-model.
+
+Zie [installatie-informatie.txt](installer/installatie-informatie.txt) voor hulp bij het aanvragen van je API-key.
+
+---
+
+## ⚡ Gebruik
+
+1. **Selecteer een bronmap** met te ordenen bestanden.
+2. **Kies een doelmap** voor de georganiseerde output.
+3. (Optioneel) Zet aan of bestanden automatisch worden hernoemd door AI.
+4. Klik op **Start** en volg de voortgang.
+5. Controleer het logboek in de applicatie of sla het op als tekstbestand.
+
+---
+
+## 📂 Ondersteunde bestandstypen
+
+- PDF (`.pdf`)
+- Word (`.docx`)
+- Tekst (`.txt`, `.md`)
+
+---
+
+## 🗃️ Mapcategorieën
+
+Bestanden worden automatisch gecategoriseerd in o.a.:
+
+- Financiën
+- Belastingen
+- Verzekeringen
+- Woning
+- Gezondheid/Medisch
+- Familie/Kids
+- Voertuigen
+- Persoonlijke documenten
+- Hobbies & interesses
+- Carrière
+- Bedrijfsadministratie
+- Reizen/vakantie
+- Overig
+
+(De app creëert submappen als de AI relevante details detecteert.)
+
+---
+
+## 📑 Projectstructuur (voor ontwikkelaars)
+
+- `installer/` — Setup, licentie, info-bestanden
+- `bin/Release/` — Gebouwde applicatie
+- `src/` — Broncode
+- `README.md`, `LICENSE.txt`, etc.
+
+---
+
+## 🛠️ Credits & Componenten
+
+Gebouwd met:
+- PdfPig (PDF-extractie)
+- DocumentFormat.OpenXml (Word-extractie)
+- Microsoft.WindowsAPICodePack (moderne dialogs)
+- Gemini, OpenAI, Azure.AI.OpenAI, Newtonsoft.Json
+
+---
+
+## 📞 Support & Feedback
+
+- **LinkedIn:** [Remsey Mailjard](https://www.linkedin.com/in/remseymailjard/)
+- **Website:** [remsey.nl](https://www.remsey.nl)
+
+---
+
+## 📄 Licentie
+
+Open source onder de [MIT-licentie](installer/LICENSE.txt).
+
+---
+
+© 2025 Remsey Mailjard | AI File Organizer
+
 Dit project is een Windows Forms-applicatie (.NET Framework 4.8) die is ontworpen om uw digitale documenten automatisch te organiseren met behulp van kunstmatige intelligentie. Het analyseert de inhoud van uw bestanden (PDF, DOCX, TXT, MD) en verplaatst ze naar vooraf gedefinieerde, logische categoriefolders, inclusief de mogelijkheid om AI-gegenereerde submappen en bestandsnamen voor te stellen.
 
 ## Inhoudsopgave
