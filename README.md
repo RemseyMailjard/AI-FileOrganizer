@@ -1,11 +1,11 @@
 # AI File Organizer 🚀
 
-Een slimme applicatie die je digitale documenten **automatisch organiseert en hernoemt** met AI (Gemini, OpenAI, Azure OpenAI).
+**AI File Organizer** is een slimme Windows-applicatie die jouw documenten automatisch organiseert en hernoemt met behulp van krachtige AI-modellen (Gemini, OpenAI, Azure OpenAI). Selecteer eenvoudig je bronmap en doelmap, kies een AI-provider, en de applicatie doet het werk voor je!
+Met AI File Organizer bespaar je tijd, houd je overzicht en regelt AI al het organiseerwerk voor je.
+
 
 ![AI File Organizer Demo](Media/AIFileOrganizer_Demo.gif)
 
-**Geen zin meer in handmatig sorteren?**  
-Met AI File Organizer bespaar je tijd, houd je overzicht en regelt AI al het organiseerwerk voor je.
 
 👉 Bekijk de volledige walkthrough:
 
