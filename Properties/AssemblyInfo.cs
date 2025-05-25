@@ -1,23 +1,24 @@
-﻿using System.Reflection;
+﻿using System.Resources;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 // General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("AI-FileOrganizer2")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyTitle("AI File Organizer")]
+[assembly: AssemblyDescription("Slimme Windows-app voor automatisch organiseren, hernoemen en classificeren van documenten met AI (Gemini, OpenAI, Azure OpenAI).")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("AI-FileOrganizer2")]
-[assembly: AssemblyCopyright("Copyright ©  2025")]
+[assembly: AssemblyCompany("Remsey Mailjard")]
+[assembly: AssemblyProduct("AI-FileOrganizer")]
+[assembly: AssemblyCopyright("© 2025 Remsey Mailjard")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
 // Setting ComVisible to false makes the types in this assembly not visible
 // to COM components.  If you need to access a type in this assembly from
 // COM, set the ComVisible attribute to true on that type.
-[assembly: ComVisible(false)]
+[assembly: ComVisible(true)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
 [assembly: Guid("a58ebe3f-c926-432e-b874-ad6f29494ac7")]
@@ -34,3 +35,4 @@ using System.Runtime.InteropServices;
 // [assembly: AssemblyVersion("1.0.*")]
 [assembly: AssemblyVersion("1.0.0.0")]
 [assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: NeutralResourcesLanguage("nl")]

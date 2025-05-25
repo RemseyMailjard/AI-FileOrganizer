@@ -7,13 +7,13 @@
     <ProjectGuid>{A58EBE3F-C926-432E-B874-AD6F29494AC7}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <RootNamespace>AI_FileOrganizer</RootNamespace>
-    <AssemblyName>AI-FileOrganizer2</AssemblyName>
+    <AssemblyName>AI-FileOrganizer</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
     <IsWebBootstrapper>false</IsWebBootstrapper>
-    <PublishUrl>C:\Users\Remse\Desktop\AIFileOrganizerLinkedIn\</PublishUrl>
+    <PublishUrl>C:\Users\Remse\Desktop\AI-FileOrganizer\</PublishUrl>
     <Install>true</Install>
     <InstallFrom>Disk</InstallFrom>
     <UpdateEnabled>false</UpdateEnabled>
@@ -23,6 +23,9 @@
     <UpdatePeriodically>false</UpdatePeriodically>
     <UpdateRequired>false</UpdateRequired>
     <MapFileExtensions>true</MapFileExtensions>
+    <TargetCulture>nl-NL</TargetCulture>
+    <ProductName>AI-File Organizer %28AFO%29</ProductName>
+    <PublisherName>Remsey Mailjard</PublisherName>
     <ApplicationRevision>3</ApplicationRevision>
     <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
     <UseApplicationTrust>false</UseApplicationTrust>
@@ -59,6 +62,18 @@
   </PropertyGroup>
   <PropertyGroup>
     <SignManifests>false</SignManifests>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>logo.ico</ApplicationIcon>
+  </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject>AI_FileOrganizer.Program</StartupObject>
+  </PropertyGroup>
+  <PropertyGroup>
+    <SignAssembly>true</SignAssembly>
+  </PropertyGroup>
+  <PropertyGroup>
+    <AssemblyOriginatorKeyFile>AIFileOrganizerKey.snk.pfx</AssemblyOriginatorKeyFile>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Azure.AI.OpenAI, Version=2.1.0.0, Culture=neutral, PublicKeyToken=92742159e12e44c8, processorArchitecture=MSIL">
@@ -245,11 +260,11 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Form1.cs">
+    <Compile Include="MainWindow.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Form1.Designer.cs">
-      <DependentUpon>Form1.cs</DependentUpon>
+    <Compile Include="MainWindow.Designer.cs">
+      <DependentUpon>MainWindow.cs</DependentUpon>
     </Compile>
     <Compile Include="FormRenameFile.cs">
       <SubType>Form</SubType>
@@ -278,8 +293,8 @@
     <Compile Include="Utils\ILogger.cs" />
     <Compile Include="Utils\PersoonlijkeMappenStructuurGenerator.cs" />
     <Compile Include="Utils\UiLogger.cs" />
-    <EmbeddedResource Include="Form1.resx">
-      <DependentUpon>Form1.cs</DependentUpon>
+    <EmbeddedResource Include="MainWindow.resx">
+      <DependentUpon>MainWindow.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="FormRenameFile.resx">
       <DependentUpon>FormRenameFile.cs</DependentUpon>
@@ -294,6 +309,7 @@
       <DependentUpon>Resources.resx</DependentUpon>
       <DesignTime>True</DesignTime>
     </Compile>
+    <None Include="AIFileOrganizerKey.snk.pfx" />
     <None Include="appsettings.json" />
     <None Include="Installer\AIFileOrganizerLinkedIn.zip" />
     <None Include="packages.config" />
@@ -338,8 +354,11 @@
     <Content Include="Installer\installatie-informatie.txt" />
     <Content Include="Installer\MIT License %28MIT-licentie%29.txt" />
     <Content Include="Installer\na-installatie-informatie.txt" />
+    <Content Include="logo.ico" />
+    <Content Include="logo_4.ico" />
     <Content Include="Media\AIFileOrganizer_CompleteWalkthrough.mp4" />
     <Content Include="Media\AIFileOrganizer_Demo.gif" />
+    <EmbeddedResource Include="Media\logo_4.ico" />
     <Content Include="PersoonlijkeMappenGenerator\.gitattributes" />
     <Content Include="PersoonlijkeMappenGenerator\map_structuur.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

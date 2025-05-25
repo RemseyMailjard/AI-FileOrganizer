@@ -1,6 +1,6 @@
 ﻿namespace AI_FileOrganizer
 {
-    partial class Form1
+    partial class MainWindow
     {
         private System.ComponentModel.IContainer components = null;
 
@@ -17,6 +17,7 @@
 
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainWindow));
             this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
             this.lblProvider = new System.Windows.Forms.Label();
             this.cmbProviderSelection = new System.Windows.Forms.ComboBox();
@@ -348,13 +349,14 @@
             this.linkLabelAuthor.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             this.linkLabelAuthor.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.linkLabelAuthor_LinkClicked);
             // 
-            // Form1
+            // MainWindow
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(850, 480);
             this.Controls.Add(this.tableLayoutPanel1);
-            this.Name = "Form1";
+            this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
+            this.Name = "MainWindow";
             this.Text = "AI File Organizer - Remsey Mailjard";
             this.Load += new System.EventHandler(this.Form1_Load);
             this.tableLayoutPanel1.ResumeLayout(false);
