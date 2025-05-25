@@ -2,268 +2,260 @@
 setlocal enabledelayedexpansion
 
 rem ================================================================================
-rem  create_persoonlijke_mappen_enhanced.bat
-rem  Versie: 2.1
-rem  Maakt een configureerbare persoonlijke mappen­structuur aan.
-rem  Functionaliteiten:
-rem  - Gebruiker kan root-locatie kiezen.
-rem  - Gebruiker kan jaartal voor mappen specificeren.
-rem  - Controleert of mappen al bestaan voordat ze worden aangemaakt.
-rem  - Gedetailleerde logging van acties.
-rem  - Foutafhandeling bij het aanmaken van mappen.
-rem  - Duidelijke bevestiging na gebruikersinteractie.
+rem  create_persoonlijke_mappen_verbeterd.bat
+rem  Versie: 1.3 (Verbeterde flow na jaarinvoer en foutafhandeling)
 rem ================================================================================
 
 :: ----- CONFIGURATIE & INITIALISATIE ---------------------------------------------
-set "SCRIPT_VERSION=2.1"
-set "LOGFILE=%TEMP%\create_persoonlijke_mappen_log.txt"
-set "DEFAULT_ROOT_NAME=Persoonlijke Administratie"
+set "LOGFILE=%TEMP%\create_persoonlijke_mappen_simple_log.txt"
+set "SCRIPT_SUCCESSFUL=true" rem Standaard aanname, wordt false bij fouten
 
-:: Initialiseer logbestand (overschrijft oud logbestand bij elke run)
+:: Initialiseer logbestand
 echo. > "%LOGFILE%"
-call :logMessage "================================================================================"
-call :logMessage "Script create_persoonlijke_mappen_enhanced.bat (Versie: !SCRIPT_VERSION!) gestart."
-call :logMessage "================================================================================"
-echo.
+call :logMessage "Script create_persoonlijke_mappen_verbeterd.bat (v1.3) gestart."
 
-:: ----- 1. BEPAAL ROOT LOCATIE ---------------------------------------------------
-set "DEFAULT_ROOT_PATH=%USERPROFILE%\Desktop\%DEFAULT_ROOT_NAME%"
-echo Standaard locatie voor de hoofdmap is:
-echo   "%DEFAULT_ROOT_PATH%"
-echo.
-set "USER_CHOSEN_ROOT="
-set /p "USER_CHOSEN_ROOT=Voer een andere volledige locatie in, of druk Enter voor de standaard: "
+:: ----- ROOT-PAD (bureaublad) ----------------------------------------------------
+set "ROOT=%USERPROFILE%\Desktop\Persoonlijke Administratie"
 
-if "!USER_CHOSEN_ROOT!"=="" (
-    set "ROOT=%DEFAULT_ROOT_PATH%"
-    call :logMessage "[CONFIG] Standaard rootlocatie gekozen: %ROOT%"
-) else (
-    set "ROOT=%USER_CHOSEN_ROOT%"
-    if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%" rem Verwijder afsluitende backslash indien aanwezig
-    if "%ROOT:~-1%"=="/" set "ROOT=%ROOT:~0,-1%" rem Verwijder afsluitende forward slash indien aanwezig
-    call :logMessage "[CONFIG] Door gebruiker gekozen rootlocatie: %ROOT%"
-)
-echo.
-echo Gekozen locatie voor de mappenstructuur:
-echo   "%ROOT%"
-echo.
-
-:: ----- 2. BEPAAL DOELJAAR EN VORIG JAAR -----------------------------------------
-:: Haal huidig jaar op (robuuste methode)
+:: ----- JAAR INSTELLING ----------------------------------------------------------
 for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set "datetime=%%I"
 set "CURRENT_YEAR=%datetime:~0,4%"
 set "TARGET_YEAR=%CURRENT_YEAR%"
+set "PREVIOUS_YEAR_ARCHIVE=%datetime:~0,4%"
+set /a "PREVIOUS_YEAR_ARCHIVE-=1"
 
-call :logMessage "[CONFIG] Huidig systeemjaar gedetecteerd: %CURRENT_YEAR%"
-echo Het huidige jaar is: !CURRENT_YEAR!
+echo.
+set "INPUT_YEAR=" rem Reset variabele voor de zekerheid
 set /p "INPUT_YEAR=Voor welk jaar moeten de mappen worden aangemaakt? (Standaard: !CURRENT_YEAR!): "
-
 if defined INPUT_YEAR if "!INPUT_YEAR!" NEQ "" (
     echo !INPUT_YEAR! | findstr /r /c:"^[1-9][0-9][0-9][0-9]$" >nul
     if not errorlevel 1 (
         set "TARGET_YEAR=!INPUT_YEAR!"
-        call :logMessage "[CONFIG] Door gebruiker gekozen doeljaar: !TARGET_YEAR!"
+        set /a "PREVIOUS_YEAR_ARCHIVE = TARGET_YEAR - 1"
+        call :logMessage "Door gebruiker gekozen doeljaar: !TARGET_YEAR!. Archiefjaar: !PREVIOUS_YEAR_ARCHIVE!"
     ) else (
-        echo Ongeldig jaartal ingevoerd. "!CURRENT_YEAR!" wordt gebruikt.
-        call :logMessage "[CONFIG] Ongeldig jaartal ingevoerd (!INPUT_YEAR!). Standaardjaar (!CURRENT_YEAR!) wordt gebruikt."
+        echo Ongeldig jaartal ingevoerd. !CURRENT_YEAR! (en archief !PREVIOUS_YEAR_ARCHIVE!) wordt gebruikt.
+        call :logMessage "Ongeldig jaartal. Standaardjaar (!CURRENT_YEAR!) en archief (!PREVIOUS_YEAR_ARCHIVE!) gebruikt."
     )
 ) else (
-    call :logMessage "[CONFIG] Standaard doeljaar gekozen: !TARGET_YEAR!"
+    call :logMessage "Standaard doeljaar (!CURRENT_YEAR!) en archief (!PREVIOUS_YEAR_ARCHIVE!) gebruikt."
 )
 
-set /a "PREVIOUS_YEAR = TARGET_YEAR - 1"
-call :logMessage "[CONFIG] Vorig jaar (voor archief) berekend: !PREVIOUS_YEAR!"
 echo.
-echo Mappen worden aangemaakt voor het jaar: !TARGET_YEAR!
-echo Archiefmappen worden aangemaakt voor het jaar: !PREVIOUS_YEAR!
-echo.
-
-:: ----- 3. INFORMATIE VOOR DE GEBRUIKER EN BEVESTIGING ----------------------------
-echo ================================================================================
+echo ==============================================================
 echo  Persoonlijke mappenstructuur wordt nu aangemaakt in:
 echo      "%ROOT%"
-echo  Voor het jaar: !TARGET_YEAR! (Archief: !PREVIOUS_YEAR!)
-echo ================================================================================
-echo Controleer bovenstaande gegevens.
-echo.
+echo  Voor het jaar: !TARGET_YEAR!
+echo ==============================================================
+echo Controleer de bovenstaande gegevens.
 pause
 echo.
-echo OK. Bezig met het voorbereiden en aanmaken van de mappenstructuur...
-call :logMessage "[USER_CONFIRMED] Gebruiker heeft bevestigd na controle van instellingen."
-call :logMessage "[ACTION] Starten met aanmaken mappenstructuur."
-echo Een ogenblik geduld.
+echo OK. Starten met het aanmaken van de mappen...
 echo.
 
-:: ----- 4. MAAK HOOFDMAP AAN EN CONTROLEER ---------------------------------------
-call :logMessage "[ACTION] Poging tot aanmaken hoofdmap: %ROOT%"
-call :createDir "%ROOT%"
+:: ----- HOOFDMAP AANMAKEN EN CONTROLEREN ----------------------------------------
+call :logMessage "Controleren/aanmaken hoofdmap: %ROOT%"
+call :createSingleDir "%ROOT%"
 if not exist "%ROOT%" (
     echo.
     echo !!! KRITIEKE FOUT: Kon de hoofdmap "%ROOT%" niet aanmaken. !!!
-    echo Controleer het pad en uw schrijfrechten. Het script stopt.
-    call :logMessage "[FATAL] Kon hoofdmap '%ROOT%' niet aanmaken. Script afgebroken."
-    goto EndScript
+    echo Controleer het pad en uw schrijfrechten. Script stopt.
+    call :logMessage "FATAL: Kon hoofdmap '%ROOT%' niet aanmaken."
+    set "SCRIPT_SUCCESSFUL=false"
+    goto EndScriptProcessing
 )
-call :logMessage "[SUCCESS] Hoofdmap '%ROOT%' succesvol aangemaakt of bestond al."
+call :logMessage "Hoofdmap succesvol verwerkt."
 echo.
 
-:: ----- 5. DEFINIEER EN MAAK MAPPENSTRUCTUUR AAN --------------------------------
-call :logMessage "[INFO] Start aanmaken van submappenstructuur."
+:: ----- MAPPENSTRUCTUUR AANMAKEN ------------------------------------------------
+call :logMessage "Start aanmaken submappenstructuur."
 
-:: --- Categorieën ---
-call :createDir "%ROOT%\1. Financien"
-call :createDir "%ROOT%\1. Financien\Bankafschriften"
-call :createDir "%ROOT%\1. Financien\Bankafschriften\!TARGET_YEAR!"
-call :createDir "%ROOT%\1. Financien\Spaarrekeningen"
-call :createDir "%ROOT%\1. Financien\Beleggingen"
+:: ---------- 1. Financiën --------------------------------------
+call :createSingleDir "%ROOT%\1. Financien"
+call :createSingleDir "%ROOT%\1. Financien\Bankafschriften"
+call :createSingleDir "%ROOT%\1. Financien\Bankafschriften\!TARGET_YEAR!"
+call :createSingleDir "%ROOT%\1. Financien\Spaarrekeningen"
+call :createSingleDir "%ROOT%\1. Financien\Beleggingen"
 
-call :createDir "%ROOT%\2. Belastingen"
-call :createDir "%ROOT%\2. Belastingen\Aangiften Inkomstenbelasting"
-call :createDir "%ROOT%\2. Belastingen\Aangiften Inkomstenbelasting\!TARGET_YEAR!"
-call :createDir "%ROOT%\2. Belastingen\Correspondentie Belastingdienst"
-call :createDir "%ROOT%\2. Belastingen\Correspondentie Belastingdienst\!TARGET_YEAR!"
+:: ... (ALLE ANDERE MAP CREATIE CALLS BLIJVEN HIER IDENTIEK) ...
+:: ---------- 2. Belastingen ------------------------------------
+call :createSingleDir "%ROOT%\2. Belastingen"
+call :createSingleDir "%ROOT%\2. Belastingen\Aangiften Inkomstenbelasting"
+call :createSingleDir "%ROOT%\2. Belastingen\Aangiften Inkomstenbelasting\!TARGET_YEAR!"
+call :createSingleDir "%ROOT%\2. Belastingen\Correspondentie Belastingdienst"
+call :createSingleDir "%ROOT%\2. Belastingen\Correspondentie Belastingdienst\!TARGET_YEAR!"
 
-call :createDir "%ROOT%\3. Verzekeringen"
-call :createDir "%ROOT%\3. Verzekeringen\Zorgverzekering"
-call :createDir "%ROOT%\3. Verzekeringen\Inboedel Opstal"
-call :createDir "%ROOT%\3. Verzekeringen\Autoverzekering"
-call :createDir "%ROOT%\3. Verzekeringen\Overig"
+:: ---------- 3. Verzekeringen ----------------------------------
+call :createSingleDir "%ROOT%\3. Verzekeringen"
+call :createSingleDir "%ROOT%\3. Verzekeringen\Zorgverzekering"
+call :createSingleDir "%ROOT%\3. Verzekeringen\Inboedel Opstal"
+call :createSingleDir "%ROOT%\3. Verzekeringen\Autoverzekering"
+call :createSingleDir "%ROOT%\3. Verzekeringen\Overig"
 
-call :createDir "%ROOT%\4. Woning"
-call :createDir "%ROOT%\4. Woning\Hypotheek of Huur"
-call :createDir "%ROOT%\4. Woning\Nutsvoorzieningen"
-call :createDir "%ROOT%\4. Woning\Onderhoud"
-call :createDir "%ROOT%\4. Woning\Inrichting"
+:: ---------- 4. Woning -----------------------------------------
+call :createSingleDir "%ROOT%\4. Woning"
+call :createSingleDir "%ROOT%\4. Woning\Hypotheek of Huur"
+call :createSingleDir "%ROOT%\4. Woning\Nutsvoorzieningen"
+call :createSingleDir "%ROOT%\4. Woning\Onderhoud"
+call :createSingleDir "%ROOT%\4. Woning\Inrichting"
 
-call :createDir "%ROOT%\5. Gezondheid"
-call :createDir "%ROOT%\5. Gezondheid\Medische dossiers"
-call :createDir "%ROOT%\5. Gezondheid\Recepten en medicijnen"
-call :createDir "%ROOT%\5. Gezondheid\Zorgclaims"
+:: ---------- 5. Gezondheid -------------------------------------
+call :createSingleDir "%ROOT%\5. Gezondheid"
+call :createSingleDir "%ROOT%\5. Gezondheid\Medische dossiers"
+call :createSingleDir "%ROOT%\5. Gezondheid\Recepten en medicijnen"
+call :createSingleDir "%ROOT%\5. Gezondheid\Zorgclaims"
 
-call :createDir "%ROOT%\6. Voertuigen"
-call :createDir "%ROOT%\6. Voertuigen\Onderhoudsrecords"
-call :createDir "%ROOT%\6. Voertuigen\Verzekeringen"
-call :createDir "%ROOT%\6. Voertuigen\Registratie Belasting"
+:: ---------- 6. Voertuigen -------------------------------------
+call :createSingleDir "%ROOT%\6. Voertuigen"
+call :createSingleDir "%ROOT%\6. Voertuigen\Onderhoudsrecords"
+call :createSingleDir "%ROOT%\6. Voertuigen\Verzekeringen"
+call :createSingleDir "%ROOT%\6. Voertuigen\Registratie Belasting"
 
-call :createDir "%ROOT%\7. Carriere"
-call :createDir "%ROOT%\7. Carriere\CV"
-call :createDir "%ROOT%\7. Carriere\Certificaten"
-call :createDir "%ROOT%\7. Carriere\Sollicitaties"
+:: ---------- 7. Carrière ---------------------------------------
+call :createSingleDir "%ROOT%\7. Carriere"
+call :createSingleDir "%ROOT%\7. Carriere\CV"
+call :createSingleDir "%ROOT%\7. Carriere\Certificaten"
+call :createSingleDir "%ROOT%\7. Carriere\Sollicitaties"
 
-call :createDir "%ROOT%\8. Reizen"
-call :createDir "%ROOT%\8. Reizen\!TARGET_YEAR! Andalusie"
+:: ---------- 8. Reizen -----------------------------------------
+call :createSingleDir "%ROOT%\8. Reizen"
+call :createSingleDir "%ROOT%\8. Reizen\!TARGET_YEAR! Andalusie"
 
-call :createDir "%ROOT%\9. Hobby"
-call :createDir "%ROOT%\9. Hobby\Gezondheid en fitness"
-call :createDir "%ROOT%\9. Hobby\Recepten"
-call :createDir "%ROOT%\9. Hobby\YouTube concepten"
+:: ---------- 9. Hobby ------------------------------------------
+call :createSingleDir "%ROOT%\9. Hobby"
+call :createSingleDir "%ROOT%\9. Hobby\Gezondheid en fitness"
+call :createSingleDir "%ROOT%\9. Hobby\Recepten"
+call :createSingleDir "%ROOT%\9. Hobby\YouTube concepten"
 
-call :createDir "%ROOT%\10. Familie en kinderen"
-call :createDir "%ROOT%\10. Familie en kinderen\School en onderwijs"
-call :createDir "%ROOT%\10. Familie en kinderen\Activiteiten en vakanties"
-call :createDir "%ROOT%\10. Familie en kinderen\Overige documenten"
+:: ---------- 10. Familie en kinderen ---------------------------
+call :createSingleDir "%ROOT%\10. Familie en kinderen"
+call :createSingleDir "%ROOT%\10. Familie en kinderen\School en onderwijs"
+call :createSingleDir "%ROOT%\10. Familie en kinderen\Activiteiten en vakanties"
+call :createSingleDir "%ROOT%\10. Familie en kinderen\Overige documenten"
 
-call :createDir "%ROOT%\11. Digitale bezittingen"
-call :createDir "%ROOT%\11. Digitale bezittingen\Wachtwoordkluis"
-call :createDir "%ROOT%\11. Digitale bezittingen\2FA backups"
-call :createDir "%ROOT%\11. Digitale bezittingen\Software licenties"
+:: ---------- 11. Digitale bezittingen --------------------------
+call :createSingleDir "%ROOT%\11. Digitale bezittingen"
+call :createSingleDir "%ROOT%\11. Digitale bezittingen\Wachtwoordkluis"
+call :createSingleDir "%ROOT%\11. Digitale bezittingen\2FA backups"
+call :createSingleDir "%ROOT%\11. Digitale bezittingen\Software licenties"
 
-call :createDir "%ROOT%\12. Abonnementen en lidmaatschappen"
-call :createDir "%ROOT%\12. Abonnementen en lidmaatschappen\Streaming"
-call :createDir "%ROOT%\12. Abonnementen en lidmaatschappen\Sportclub"
-call :createDir "%ROOT%\12. Abonnementen en lidmaatschappen\Overige abonnementen"
+:: ---------- 12. Abonnementen en lidmaatschappen ---------------
+call :createSingleDir "%ROOT%\12. Abonnementen en lidmaatschappen"
+call :createSingleDir "%ROOT%\12. Abonnementen en lidmaatschappen\Streaming"
+call :createSingleDir "%ROOT%\12. Abonnementen en lidmaatschappen\Sportclub"
+call :createSingleDir "%ROOT%\12. Abonnementen en lidmaatschappen\Overige abonnementen"
 
-call :createDir "%ROOT%\13. Foto en video"
-call :createDir "%ROOT%\13. Foto en video\!TARGET_YEAR!"
-call :createDir "%ROOT%\13. Foto en video\!TARGET_YEAR!\06 Graduatie"
+:: ---------- 13. Foto en video ---------------------------------
+call :createSingleDir "%ROOT%\13. Foto en video"
+call :createSingleDir "%ROOT%\13. Foto en video\!TARGET_YEAR!"
+call :createSingleDir "%ROOT%\13. Foto en video\!TARGET_YEAR!\06 Graduatie"
 
-call :createDir "%ROOT%\14. Opleiding"
-call :createDir "%ROOT%\14. Opleiding\Cursussen"
-call :createDir "%ROOT%\14. Opleiding\Studie materiaal"
-call :createDir "%ROOT%\14. Opleiding\Certificaten"
+:: ---------- 14. Opleiding -------------------------------------
+call :createSingleDir "%ROOT%\14. Opleiding"
+call :createSingleDir "%ROOT%\14. Opleiding\Cursussen"
+call :createSingleDir "%ROOT%\14. Opleiding\Studie materiaal"
+call :createSingleDir "%ROOT%\14. Opleiding\Certificaten"
 
-call :createDir "%ROOT%\15. Juridisch"
-call :createDir "%ROOT%\15. Juridisch\Contracten"
-call :createDir "%ROOT%\15. Juridisch\Boetes"
-call :createDir "%ROOT%\15. Juridisch\Officiele correspondentie"
+:: ---------- 15. Juridisch -------------------------------------
+call :createSingleDir "%ROOT%\15. Juridisch"
+call :createSingleDir "%ROOT%\15. Juridisch\Contracten"
+call :createSingleDir "%ROOT%\15. Juridisch\Boetes"
+call :createSingleDir "%ROOT%\15. Juridisch\Officiele correspondentie"
 
-call :createDir "%ROOT%\16. Nalatenschap"
-call :createDir "%ROOT%\16. Nalatenschap\Testament"
-call :createDir "%ROOT%\16. Nalatenschap\Levenstestament"
-call :createDir "%ROOT%\16. Nalatenschap\Uitvaartwensen"
+:: ---------- 16. Nalatenschap ----------------------------------
+call :createSingleDir "%ROOT%\16. Nalatenschap"
+call :createSingleDir "%ROOT%\16. Nalatenschap\Testament"
+call :createSingleDir "%ROOT%\16. Nalatenschap\Levenstestament"
+call :createSingleDir "%ROOT%\16. Nalatenschap\Uitvaartwensen"
 
-call :createDir "%ROOT%\17. Noodinformatie"
-call :createDir "%ROOT%\17. Noodinformatie\Paspoort scans"
-call :createDir "%ROOT%\17. Noodinformatie\ICE contacten"
-call :createDir "%ROOT%\17. Noodinformatie\Medische alert"
+:: ---------- 17. Noodinformatie --------------------------------
+call :createSingleDir "%ROOT%\17. Noodinformatie"
+call :createSingleDir "%ROOT%\17. Noodinformatie\Paspoort scans"
+call :createSingleDir "%ROOT%\17. Noodinformatie\ICE contacten"
+call :createSingleDir "%ROOT%\17. Noodinformatie\Medische alert"
 
-call :createDir "%ROOT%\18. Huisinventaris"
-call :createDir "%ROOT%\18. Huisinventaris\Fotos"
-call :createDir "%ROOT%\18. Huisinventaris\Aankoopbewijzen"
+:: ---------- 18. Huisinventaris --------------------------------
+call :createSingleDir "%ROOT%\18. Huisinventaris"
+call :createSingleDir "%ROOT%\18. Huisinventaris\Fotos"
+call :createSingleDir "%ROOT%\18. Huisinventaris\Aankoopbewijzen"
 
-call :createDir "%ROOT%\19. Persoonlijke projecten"
-call :createDir "%ROOT%\19. Persoonlijke projecten\DIY plannen"
-call :createDir "%ROOT%\19. Persoonlijke projecten\Side hustle ideeen"
+:: ---------- 19. Persoonlijke projecten ------------------------
+call :createSingleDir "%ROOT%\19. Persoonlijke projecten"
+call :createSingleDir "%ROOT%\19. Persoonlijke projecten\DIY plannen"
+call :createSingleDir "%ROOT%\19. Persoonlijke projecten\Side hustle ideeen"
 
-call :createDir "%ROOT%\20. Huisdieren"
-call :createDir "%ROOT%\20. Huisdieren\Dierenpaspoorten"
-call :createDir "%ROOT%\20. Huisdieren\Dierenarts"
-call :createDir "%ROOT%\20. Huisdieren\Verzekeringen"
+:: ---------- 20. Huisdieren ------------------------------------
+call :createSingleDir "%ROOT%\20. Huisdieren"
+call :createSingleDir "%ROOT%\20. Huisdieren\Dierenpaspoorten"
+call :createSingleDir "%ROOT%\20. Huisdieren\Dierenarts"
+call :createSingleDir "%ROOT%\20. Huisdieren\Verzekeringen"
 
-call :createDir "%ROOT%\99. Archief"
-call :createDir "%ROOT%\99. Archief\!PREVIOUS_YEAR!"
-call :createDir "%ROOT%\99. Archief\!PREVIOUS_YEAR!\Oude projecten"
+:: ---------- 99. Archief ---------------------------------------
+call :createSingleDir "%ROOT%\99. Archief"
+call :createSingleDir "%ROOT%\99. Archief\!PREVIOUS_YEAR_ARCHIVE!"
+call :createSingleDir "%ROOT%\99. Archief\!PREVIOUS_YEAR_ARCHIVE!\Oude projecten"
 
-call :logMessage "[INFO] Aanmaken van submappenstructuur voltooid."
-echo.
-echo ********************************************************************************
-echo *** KLAAR! De mappenstructuur operatie is voltooid.
-echo *** Controleer de console output hierboven voor eventuele specifieke meldingen.
-echo *** Een gedetailleerd logbestand is aangemaakt/bijgewerkt in:
-echo ***   %LOGFILE%
-echo ********************************************************************************
-echo.
-
-goto EndScript
+call :logMessage "Aanmaken submappenstructuur voltooid."
+goto EndScriptProcessing
 
 :: ----- SUBROUTINES --------------------------------------------------------------
 
-:createDir
+:createSingleDir
 rem Parameter %1: Volledig pad naar de map die aangemaakt moet worden.
-set "FOLDER_PATH=%~1"
-set "LOG_PREFIX=[%DATE% %TIME%]"
+set "FOLDER_TO_MAKE=%~1"
+echo.
+echo   Verwerken map: "!FOLDER_TO_MAKE!"
 
-echo %LOG_PREFIX% [CHECK] Bezig met map: "%FOLDER_PATH%" >> "%LOGFILE%"
-echo   Bezig met map: "%FOLDER_PATH%"
-
-if not exist "%FOLDER_PATH%" (
-    mkdir "%FOLDER_PATH%"
+if not exist "!FOLDER_TO_MAKE!" (
+    mkdir "!FOLDER_TO_MAKE!"
     if not errorlevel 1 (
         echo     [OK] Map succesvol aangemaakt.
-        echo %LOG_PREFIX% [SUCCESS] Map aangemaakt: "%FOLDER_PATH%" >> "%LOGFILE%"
+        call :logMessage "AANGEMAAKT: !FOLDER_TO_MAKE!"
     ) else (
-        set "MKDIR_ERROR=%errorlevel%"
-        echo     [FOUT!] Kon map NIET aanmaken! (Windows Error: !MKDIR_ERROR!)
-        echo %LOG_PREFIX% [ERROR] Kon map NIET aanmaken: "%FOLDER_PATH%" (Windows Error: !MKDIR_ERROR!) >> "%LOGFILE%"
+        set "MKDIR_ERROR_LEVEL=!errorlevel!"
+        echo     [FOUT!] Kon map NIET aanmaken! (Errorlevel: !MKDIR_ERROR_LEVEL!)
+        call :logMessage "FOUT bij aanmaken: !FOLDER_TO_MAKE! (Error: !MKDIR_ERROR_LEVEL!)"
+        set "SCRIPT_SUCCESSFUL=false" rem Markeer dat er iets misging
     )
 ) else (
     echo     [INFO] Map bestaat al, geen actie nodig.
-    echo %LOG_PREFIX% [INFO] Map bestaat al: "%FOLDER_PATH%" >> "%LOGFILE%"
+    call :logMessage "BESTAAT AL: !FOLDER_TO_MAKE!"
 )
-echo. >> "%LOGFILE%" rem Extra witregel in log voor leesbaarheid
 goto :eof
-
 
 :logMessage
 rem Parameter %1: Boodschap om te loggen.
 echo [%DATE% %TIME%] %~1 >> "%LOGFILE%"
 goto :eof
 
-
-:EndScript
-call :logMessage "Script beëindigd."
-call :logMessage "================================================================================"
+:EndScriptProcessing
+rem Dit label wordt aangeroepen na de mapverwerking of bij een fatale fout.
 echo.
+if "!SCRIPT_SUCCESSFUL!"=="true" (
+    echo *****************************************************************
+    echo ***                                                         ***
+    echo ***    S U C C E S !                                        ***
+    echo ***                                                         ***
+    echo ***    Alle persoonlijke mappen zijn succesvol verwerkt     ***
+    echo ***    (aangemaakt of bestonden al) in:                     ***
+    echo ***    "%ROOT%"
+    echo ***                                                         ***
+    echo *****************************************************************
+    call :logMessage "Script succesvol beëindigd. Alle mappen verwerkt."
+) else (
+    echo *****************************************************************
+    echo ***                                                         ***
+    echo ***    LET OP: Er zijn problemen opgetreden!                 ***
+    echo ***                                                         ***
+    echo ***    Mogelijk zijn niet alle mappen (correct) aangemaakt. ***
+    echo ***    Controleer de output hierboven en het logbestand:    ***
+    echo ***    "%LOGFILE%"
+    echo ***                                                         ***
+    echo *****************************************************************
+    call :logMessage "Script beëindigd met problemen tijdens mapcreatie."
+)
+echo.
+echo Druk op een willekeurige toets om af te sluiten...
+pause >nul
 endlocal
-pause
 exit /b
