@@ -1,0 +1,24 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Achtergrond voor contrast (optioneel) -->
+  <!-- <rect width="256" height="256" fill="#f0f0f0"/> -->
+
+  <!-- Map Basis -->
+  <rect x="36" y="68" width="184" height="120" rx="16" fill="#2563EB" stroke="#1E293B" stroke-width="5"/>
+  <!-- Map Tab -->
+  <path d="M42 68V56a8 8 0 0 1 8-8h60l18 22h68a8 8 0 0 1 8 8v8" fill="#3B82F6" stroke="#1E293B" stroke-width="5"/>
+
+  <!-- Gestapelde Documenten in de map -->
+  <rect x="60" y="90" width="136" height="70" rx="6" fill="#E0E7FF" stroke="#3B82F6" stroke-width="3"/>
+  <rect x="66" y="96" width="124" height="58" rx="4" fill="#FFFFFF" stroke="#3B82F6" stroke-width="2.5"/>
+  <line x1="76" y1="108" x2="120" y2="108" stroke="#A5B4FC" stroke-width="3" stroke-linecap="round"/>
+  <line x1="76" y1="118" x2="150" y2="118" stroke="#A5B4FC" stroke-width="3" stroke-linecap="round"/>
+  <line x1="76" y1="128" x2="130" y2="128" stroke="#A5B4FC" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- AI Element (bijv. een "denkwolkje" of "processor" op de documenten) -->
+  <!-- Hier een "brein/processor" achtig symbool -->
+  <circle cx="168" cy="110" r="10" fill="#FFFFFF" stroke="#2563EB" stroke-width="2.5"/>
+  <path d="M168 104 V100 M168 116 V120 M162 110 H158 M174 110 H178
+           M163 105 L160 102 M173 105 L176 102
+           M163 115 L160 118 M173 115 L176 118"
+        stroke="#2563EB" stroke-width="2" stroke-linecap="round"/>
+</svg>
