@@ -303,6 +303,7 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
     <None Include="README.md" />
+    <None Include="README_AI_File_Organizer.md" />
     <None Include="Scripts\PersoonlijkeMappenStructuurGenerator.bat" />
     <None Include="Scripts\README.MD" />
   </ItemGroup>
