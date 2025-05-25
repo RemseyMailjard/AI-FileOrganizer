@@ -303,6 +303,8 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
     <None Include="README.md" />
+    <None Include="Scripts\PersoonlijkeMappenStructuurGenerator.bat" />
+    <None Include="Scripts\README.MD" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
@@ -319,8 +321,10 @@
       <Install>false</Install>
     </BootstrapperPackage>
   </ItemGroup>
+  <ItemGroup />
   <ItemGroup>
-    <Folder Include="Scripts\" />
+    <Content Include="Scripts\map_structuur.txt" />
+    <Content Include="Scripts\PersoonlijkeMappenStructuurGenerator.exe" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -1,90 +1,161 @@
+::[Bat To Exe Converter]
+::
+::YAwzoRdxOk+EWAnk
+::fBw5plQjdG8=
+::YAwzuBVtJxjWCl3EqQJgSA==
+::ZR4luwNxJguZRRnk
+::Yhs/ulQjdF+5
+::cxAkpRVqdFKZSDk=
+::cBs/ulQjdF+5
+::ZR41oxFsdFKZSDk=
+::eBoioBt6dFKZSDk=
+::cRo6pxp7LAbNWATEpCI=
+::egkzugNsPRvcWATEpCI=
+::dAsiuh18IRvcCxnZtBJQ
+::cRYluBh/LU+EWAnk
+::YxY4rhs+aU+JeA==
+::cxY6rQJ7JhzQF1fEqQJQ
+::ZQ05rAF9IBncCkqN+0xwdVs0
+::ZQ05rAF9IAHYFVzEqQJQ
+::eg0/rx1wNQPfEVWB+kM9LVsJDGQ=
+::fBEirQZwNQPfEVWB+kM9LVsJDGQ=
+::cRolqwZ3JBvQF1fEqQJQ
+::dhA7uBVwLU+EWDk=
+::YQ03rBFzNR3SWATElA==
+::dhAmsQZ3MwfNWATElA==
+::ZQ0/vhVqMQ3MEVWAtB9wSA==
+::Zg8zqx1/OA3MEVWAtB9wSA==
+::dhA7pRFwIByZRRnk
+::Zh4grVQjdCyDJGyX8VAjFClRQReHAE+/Fb4I5/jHwuONrA0NW/ArfoDX07uyAfAD5kzndIIk02lmueJBKhJUez25aQ46oHRHpDa5BMSOuh/1WXSk51t+Hn1x5w==
+::YB416Ek+ZG8=
+::
+::
+::978f952a14a936cc963da21a135fa983
 @echo off
 setlocal enabledelayedexpansion
 
 rem ================================================================================
-rem  create_persoonlijke_mappen_verbeterd_v2.bat
-rem  Versie: 1.5
+rem  PersoonlijkeMappenStructuurGenerator.bat
+rem  Versie: 1.5.3 (Robuuste jaartalvalidatie)
 rem  Maakt een persoonlijke mappenstructuur aan met logging en foutafhandeling
-rem  Verbeteringen: Correcte hiërarchische mapcreatie, consistente variabele-expansie.
+rem  Verbeteringen:
+rem    - Header aangepast naar nieuwe bestandsnaam
+rem    - Numerieke validatie voor jaartal verbeterd (v1.5.2)
+rem    - Alle 20 + Archief-categorieën toegevoegd (v1.5.2)
+rem    - Jaartalvalidatie verder verfijnd voor alle input scenario's (v1.5.3)
 rem ================================================================================
 
+:: Welkomstbericht
+echo.
+echo ===============================
+echo Gemaakt door Remsey Mailjard
+echo LinkedIn: https://nl.linkedin.com/in/remseymailjard
+echo ===============================
+echo.
+
 :: Initialisatie
-set "LOGFILE=%TEMP%\create_persoonlijke_mappen_log.txt"
+set "SCRIPT_VERSION=1.5.3"
+set "LOGFILE=%TEMP%\PersoonlijkeMappenStructuurGenerator_log.txt"
 set "SCRIPT_SUCCESSFUL=true"
+set /a FOLDERS_CREATED_COUNT=0
+set /a FOLDERS_EXISTED_COUNT=0
+set /a FOLDERS_FAILED_COUNT=0
 
 :: Logbestand aanmaken
 echo. > "%LOGFILE%"
-call :logMessage "Script gestart (v1.5)."
+call :logMessage "Script gestart (v%SCRIPT_VERSION%)."
 
-:: Bureaublad-rootpad
-set "ROOT=%USERPROFILE%\Desktop\Persoonlijke Administratie"
+:: Root-locatie bepalen
+set "DEFAULT_ROOT=%USERPROFILE%\Desktop\Persoonlijke Administratie"
+echo.
+echo =============================================================
+echo  Persoonlijke mappenstructuur wordt nu aangemaakt!
+echo =============================================================
+echo Standaard locatie is: "%DEFAULT_ROOT%"
+set /p "ROOT=Wil je een andere locatie? (laat leeg voor standaard): "
+if "!ROOT!"=="" set "ROOT=%DEFAULT_ROOT%"
+if "!ROOT:~-1!"=="\" set "ROOT=!ROOT:~0,-1!"
 
-:: Jaar bepalen
+:: Huidig jaar berekenen en standaard doeljaar instellen
 for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set "datetime=%%I"
 set "CURRENT_YEAR=%datetime:~0,4%"
 set "TARGET_YEAR=%CURRENT_YEAR%"
-set /a PREVIOUS_YEAR_ARCHIVE=!CURRENT_YEAR!-1
+set /a "PREVIOUS_YEAR_ARCHIVE=TARGET_YEAR-1"
+call :logMessage "Standaard doeljaar ingesteld op huidig jaar: !CURRENT_YEAR!, archiefjaar: !PREVIOUS_YEAR_ARCHIVE!"
 
-:: Vraag gebruiker naar doeljaar
+:: Vraag gebruiker naar doeljaar met numerieke validatie
 echo.
-set "INPUT_YEAR=" rem Reset voor de zekerheid
+set "INPUT_YEAR="
 set /p "INPUT_YEAR=Voor welk jaar moeten de mappen worden aangemaakt? (standaard: !CURRENT_YEAR!): "
-if not "!INPUT_YEAR!"=="" (
-    echo !INPUT_YEAR! | findstr /r "^[1-9][0-9][0-9][0-9]$" >nul
-    if errorlevel 1 (
-        echo Ongeldig jaartal. Standaard !CURRENT_YEAR! wordt gebruikt.
-        call :logMessage "Ongeldig jaar ingevoerd: !INPUT_YEAR!. Gebruik standaard: !CURRENT_YEAR!"
-    ) else (
-        set "TARGET_YEAR=!INPUT_YEAR!"
-        set /a PREVIOUS_YEAR_ARCHIVE=!TARGET_YEAR!-1
-        call :logMessage "Doeljaar gekozen: !TARGET_YEAR!, archiefjaar: !PREVIOUS_YEAR_ARCHIVE!"
-    )
-) else (
-    call :logMessage "Geen jaartal ingevoerd. Gebruik standaard: !CURRENT_YEAR!, archiefjaar: !PREVIOUS_YEAR_ARCHIVE!"
+
+if "!INPUT_YEAR!"=="" (
+    rem Gebruiker heeft niets ingevoerd, standaardjaar wordt al gebruikt (zie initialisatie)
+    call :logMessage "Geen jaartal ingevoerd. Standaard (!CURRENT_YEAR!) wordt gebruikt."
+    goto AfterYearValidation
 )
 
-:: Overzicht weergeven
+rem Gebruiker heeft een jaartal ingevoerd, valideer het
+set /a TEST_YEAR=0 2>nul rem Reset/initialiseer TEST_YEAR
+set /a TEST_YEAR=!INPUT_YEAR! 2>nul
+if errorlevel 1 (
+    call :logMessage "Ongeldige invoer voor jaartal (niet numeriek): '!INPUT_YEAR!'."
+    goto InvalidYearInput
+)
+
+rem Input is numeriek, controleer nu het bereik
+if !TEST_YEAR! lss 1000 (
+    call :logMessage "Ingevoerd jaartal '!INPUT_YEAR!' (!TEST_YEAR!) is te klein (minder dan 1000)."
+    goto InvalidYearInput
+)
+if !TEST_YEAR! gtr 9999 (
+    call :logMessage "Ingevoerd jaartal '!INPUT_YEAR!' (!TEST_YEAR!) is te groot (meer dan 9999)."
+    goto InvalidYearInput
+)
+
+rem Als we hier komen, is het jaartal geldig (tussen 1000 en 9999)
+set "TARGET_YEAR=!TEST_YEAR!"
+set /a "PREVIOUS_YEAR_ARCHIVE=TARGET_YEAR-1"
+call :logMessage "Doeljaar door gebruiker ingesteld: !TARGET_YEAR!, archiefjaar: !PREVIOUS_YEAR_ARCHIVE!"
+goto AfterYearValidation
+
+:InvalidYearInput
+echo Ongeldig jaartal ('!INPUT_YEAR!'). Standaard jaartal (!CURRENT_YEAR!) wordt gebruikt.
+call :logMessage "Teruggevallen op standaardjaar (!CURRENT_YEAR!) na ongeldige input '!INPUT_YEAR!'."
+set "TARGET_YEAR=%CURRENT_YEAR%"
+set /a "PREVIOUS_YEAR_ARCHIVE=TARGET_YEAR-1"
+rem Valt automatisch door naar AfterYearValidation
+
+:AfterYearValidation
+:: Overzicht en bevestiging
 echo.
-echo ==============================================================
+echo =============================================================
 echo Mappenstructuur wordt aangemaakt in:
-echo     "!ROOT!"
+echo    "!ROOT!"
 echo Voor het jaar: !TARGET_YEAR!
 echo Archief voor: !PREVIOUS_YEAR_ARCHIVE!
-echo ==============================================================
-rem Oude regel: echo Controleer de bovenstaande gegevens.
-echo Druk op Enter om de mappen definitief aan te maken, of sluit dit venster om te annuleren.
+echo =============================================================
+echo Druk op Enter om te starten, of sluit dit venster om te annuleren.
 pause
-echo.
-echo OK. Starten met aanmaken mappen...
-echo.
 
-:: Hoofdmap controleren en aanmaken
-call :logMessage "Hoofdmap controleren/aanmaken: !ROOT!"
+:: Begin mappen aanmaken
+call :logMessage "Start mapcreatie: Locatie=!ROOT!, Jaar=!TARGET_YEAR!."
 call :createSingleDir "!ROOT!"
 if not exist "!ROOT!" (
     echo [FOUT] Kan hoofdmap niet aanmaken: "!ROOT!"
-    call :logMessage "FOUT: Hoofdmap '!ROOT!' niet aangemaakt."
+    call :logMessage "FOUT: Hoofdmap niet aangemaakt."
     set "SCRIPT_SUCCESSFUL=false"
     goto EndScriptProcessing
 )
-call :logMessage "Hoofdmap '!ROOT!' succesvol verwerkt."
-echo.
-
-:: Submappen aanmaken
-call :logMessage "Start submappenstructuur aanmaken..."
 
 :: ---------- 1. Financiën --------------------------------------
 call :createSingleDir "!ROOT!\1. Financien"
-call :createSingleDir "!ROOT!\1. Financien\Bankafschriften"
 call :createSingleDir "!ROOT!\1. Financien\Bankafschriften\!TARGET_YEAR!"
 call :createSingleDir "!ROOT!\1. Financien\Spaarrekeningen"
 call :createSingleDir "!ROOT!\1. Financien\Beleggingen"
 
 :: ---------- 2. Belastingen ------------------------------------
 call :createSingleDir "!ROOT!\2. Belastingen"
-call :createSingleDir "!ROOT!\2. Belastingen\Aangiften Inkomstenbelasting"
 call :createSingleDir "!ROOT!\2. Belastingen\Aangiften Inkomstenbelasting\!TARGET_YEAR!"
-call :createSingleDir "!ROOT!\2. Belastingen\Correspondentie Belastingdienst"
 call :createSingleDir "!ROOT!\2. Belastingen\Correspondentie Belastingdienst\!TARGET_YEAR!"
 
 :: ---------- 3. Verzekeringen ----------------------------------
@@ -122,6 +193,7 @@ call :createSingleDir "!ROOT!\7. Carriere\Sollicitaties"
 :: ---------- 8. Reizen -----------------------------------------
 call :createSingleDir "!ROOT!\8. Reizen"
 call :createSingleDir "!ROOT!\8. Reizen\!TARGET_YEAR! Andalusie"
+call :createSingleDir "!ROOT!\8. Reizen\Vooruitblik Volgend Jaar"
 
 :: ---------- 9. Hobby ------------------------------------------
 call :createSingleDir "!ROOT!\9. Hobby"
@@ -197,63 +269,51 @@ call :createSingleDir "!ROOT!\99. Archief"
 call :createSingleDir "!ROOT!\99. Archief\!PREVIOUS_YEAR_ARCHIVE!"
 call :createSingleDir "!ROOT!\99. Archief\!PREVIOUS_YEAR_ARCHIVE!\Oude projecten"
 
-call :logMessage "Submappenstructuur voltooid."
-goto EndScriptProcessing
-
-:: -------------------------- SUBROUTINES --------------------------
-
-:createSingleDir
-set "FOLDER_TO_MAKE=%~1"
-echo.
-echo Verwerken map: "!FOLDER_TO_MAKE!"
-
-if not exist "!FOLDER_TO_MAKE!" (
-    mkdir "!FOLDER_TO_MAKE!"
-    if not errorlevel 1 (
-        echo   [OK] Map aangemaakt.
-        call :logMessage "AANGEMAAKT: !FOLDER_TO_MAKE!"
-    ) else (
-        echo   [FOUT] Kon map niet aanmaken! (Errorlevel: !errorlevel!)
-        call :logMessage "FOUT bij aanmaken: !FOLDER_TO_MAKE! (Errorlevel: !errorlevel!)"
-        set "SCRIPT_SUCCESSFUL=false"
-    )
-) else (
-    echo   [INFO] Map bestaat al.
-    call :logMessage "BESTAAT AL: !FOLDER_TO_MAKE!"
-)
-goto :eof
-
-:logMessage
-echo [%DATE% %TIME%] %~1 >> "%LOGFILE%"
-goto :eof
-
 :EndScriptProcessing
 echo.
 if "!SCRIPT_SUCCESSFUL!"=="true" (
     echo *****************************************************************
-    echo ***                                                         ***
-    echo ***    S U C C E S !                                        ***
-    echo ***                                                         ***
-    echo ***    Alle persoonlijke mappen zijn succesvol verwerkt     ***
-    echo ***    (aangemaakt of bestonden al) in:                     ***
-    echo ***    "!ROOT!"
-    echo ***                                                         ***
+    echo *** SUCCES! Alle mappen zijn succesvol verwerkt.            ***
     echo *****************************************************************
     call :logMessage "Script succesvol beëindigd."
 ) else (
     echo *****************************************************************
-    echo ***                                                         ***
-    echo ***    LET OP: Er zijn problemen opgetreden!                 ***
-    echo ***                                                         ***
-    echo ***    Mogelijk zijn niet alle mappen (correct) aangemaakt. ***
-    echo ***    Controleer de output hierboven en het logbestand:    ***
-    echo ***    "!LOGFILE!"
-    echo ***                                                         ***
+    echo *** LET OP: Er zijn fouten opgetreden. Controleer het logbestand: ***
+    echo ***        "!LOGFILE!"                                       ***
     echo *****************************************************************
-    call :logMessage "Script beëindigd met problemen."
+    call :logMessage "Script beëindigd met fouten."
 )
+
 echo.
-echo Druk op een willekeurige toets om af te sluiten...
+echo Druk op een toets om af te sluiten...
 pause >nul
 endlocal
 exit /b
+
+:: -------------------------- SUBROUTINES --------------------------
+
+:createSingleDir
+rem Subroutine voor het aanmaken van één map met logging
+set "FOLDER=%~1"
+if not exist "%FOLDER%" (
+    mkdir "%FOLDER%" && (
+        echo [OK] %FOLDER%
+        call :logMessage "AANGEMAAKT: %FOLDER%"
+        set /a FOLDERS_CREATED_COUNT+=1
+    ) || (
+        echo [FOUT] Kon niet aanmaken: %FOLDER%
+        call :logMessage "FOUT: Kon niet aanmaken: %FOLDER%"
+        set "SCRIPT_SUCCESSFUL=false"
+        set /a FOLDERS_FAILED_COUNT+=1
+    )
+) else (
+    echo [INFO] Bestaat al: %FOLDER%
+    call :logMessage "BESTAAT AL: %FOLDER%"
+    set /a FOLDERS_EXISTED_COUNT+=1
+)
+goto :eof
+
+:logMessage
+rem Subroutine voor loggen van berichten
+echo [%DATE% %TIME%] %~1 >> "%LOGFILE%"
+goto :eof
