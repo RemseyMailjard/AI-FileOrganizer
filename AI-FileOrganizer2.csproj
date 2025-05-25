@@ -292,6 +292,7 @@
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
     <None Include="appsettings.json" />
+    <None Include="Installer\AIFileOrganizerLinkedIn.zip" />
     <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
@@ -325,7 +326,8 @@
   <ItemGroup />
   <ItemGroup>
     <Content Include="Installer\AI-applicatie.txt" />
-    <Content Include="Installer\AI-FileOrganizer.exe" />
+    <Content Include="Installer\AIFileOrganizerSetup.exe" />
+    <Content Include="Installer\install.iss" />
     <Content Include="Installer\Installer.txt" />
     <Content Include="Installer\MIT License %28MIT-licentie%29.txt" />
     <Content Include="Scripts\map_structuur.txt" />
