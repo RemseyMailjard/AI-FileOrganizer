@@ -323,6 +323,10 @@
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
+    <Content Include="Installer\AI-applicatie.txt" />
+    <Content Include="Installer\AI-FileOrganizer.exe" />
+    <Content Include="Installer\Installer.txt" />
+    <Content Include="Installer\MIT License %28MIT-licentie%29.txt" />
     <Content Include="Scripts\map_structuur.txt" />
     <Content Include="Scripts\PersoonlijkeMappenStructuurGenerator.exe" />
   </ItemGroup>

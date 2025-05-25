@@ -1,49 +1,72 @@
-# 🗂️ Persoonlijke Mappenstructuur Generator (Batch Script)
+# 🗂️ Persoonlijke Mappenstructuur Generator
 
-Deze batchfile maakt automatisch een overzichtelijke mappenstructuur voor **persoonlijke administratie** aan op het bureaublad van de gebruiker. De structuur is gericht op particulieren (dus geen ZZP- of ondernemersmappen) en helpt je om digitale documenten overzichtelijk te bewaren.
+Deze tool creëert automatisch een overzichtelijke en configureerbare mappenstructuur voor **persoonlijke administratie**. Het helpt je om digitale documenten georganiseerd te bewaren, gericht op particulieren. De structuur wordt gedefinieerd in een `map_structuur.txt` bestand, waardoor je deze eenvoudig kunt aanpassen aan je eigen behoeften.
 
-## 📁 Wat doet dit script?
+**In deze repository vind je:**
+*   Een direct bruikbare **.EXE versie** (aanbevolen voor de meeste gebruikers).
+*   De originele **.BAT script versie** voor degenen die de code willen inzien of aanpassen.
 
-- Creëert een hoofdfolder `Persoonlijke Administratie` op het bureaublad
-- Maakt daarbinnen 20 thematische hoofdgroepen aan, zoals:
-  - Financiën
-  - Belastingen
-  - Verzekeringen
-  - Gezondheid
-  - Carrière
-  - Digitale bezittingen
-  - ...en meer
-- Bevat submappen met jaartallen (zoals `2025`) om het archiveren te vergemakkelijken
-- Inclusief een aparte `99. Archief`-map voor oudere bestanden
+## 📁 Wat doet deze tool?
 
-## ▶️ Gebruik
+*   Vraagt naar een **hoofdlocatie** (standaard `Desktop\Persoonlijke Administratie`) en een **doeljaar**.
+*   Leest de gewenste mappenstructuur uit het meegeleverde `map_structuur.txt` bestand.
+*   Creëert de mappen, waarbij placeholders zoals `!TARGET_YEAR!` en `!PREVIOUS_YEAR!` worden vervangen.
+*   Genereert een uitgebreide set aan thematische mappen, bijvoorbeeld voor:
+    *   Financiën
+    *   Belastingen
+    *   Verzekeringen
+    *   Woning
+    *   Gezondheid
+    *   ...en vele andere categorieën.
+*   Ondersteunt submappen met jaartallen voor eenvoudig archiveren.
+*   Bevat een logbestand voor het traceren van de uitgevoerde acties.
 
-1. Download het bestand `MaakPersoonlijkeMappenstructuur.bat`
-2. Dubbelklik erop (of voer het uit via de command prompt)
-3. De mappenstructuur wordt automatisch aangemaakt op je bureaublad
+## ▶️ Gebruik (.EXE Versie - Aanbevolen)
 
-> ℹ️ Zorg ervoor dat je het script uitvoert op een Windows-machine.
+1.  Download `PersoonlijkeMappenGenerator.exe` en `map_structuur.txt` uit de [Releases sectie](https://github.com/GEBRUIKERSNAAM/PersoonlijkeMappenGenerator/releases) (of de hoofdmap van deze repository).
+2.  **Plaats beide bestanden (`.exe` en `.txt`) in dezelfde map.**
+3.  Dubbelklik op `PersoonlijkeMappenGenerator.exe`.
+4.  Volg de instructies op het scherm om de locatie en het jaartal te kiezen.
+5.  De mappenstructuur wordt aangemaakt volgens de definities in `map_structuur.txt`.
 
-## 📷 Screenshot (optioneel)
+> ℹ️ De .EXE is gemaakt voor Windows en vereist geen installatie. Zorg ervoor dat `map_structuur.txt` aanwezig is in dezelfde map als de .EXE.
 
-> Voeg hier een afbeelding toe van de aangemaakte mappenstructuur voor visuele duidelijkheid
+## 🔧 Structuur Aanpassen (`map_structuur.txt`)
+
+Je kunt de mappenstructuur volledig naar wens aanpassen door het `map_structuur.txt` bestand te bewerken:
+*   Elke regel definieert een map (relatief aan de hoofdmap).
+*   Gebruik `/` als padscheidingsteken.
+*   Gebruik `!TARGET_YEAR!` voor het gekozen jaartal en `!PREVIOUS_YEAR!` voor het jaar daarvoor.
+*   Regels beginnend met `#` of `rem` worden genegeerd.
+
+## 🧑‍💻 Gebruik (.BAT Script Versie - Voor gevorderden)
+
+1.  Download `PersoonlijkeMappenStructuurGenerator.bat` en `map_structuur.txt`.
+2.  **Plaats beide bestanden in dezelfde map.**
+3.  Dubbelklik op het `.bat` bestand of voer het uit via de command prompt.
+4.  Volg de instructies.
+
+## 📷 Screenshot (Voorbeeld van de standaardstructuur)
+
+> Voeg hier een afbeelding toe van (een deel van) de aangemaakte mappenstructuur voor visuele duidelijkheid.
 
 ## 📌 Voor wie is dit bedoeld?
 
-- Mensen die hun digitale documenten willen organiseren
-- Trainers en coaches die basis digitale vaardigheden aanleren
-- Personen die een goede mappenopzet zoeken voor thuisadministratie
+*   Iedereen die zijn/haar digitale documenten en administratie overzichtelijk wil organiseren.
+*   Personen die een startpunt zoeken voor een goede mappenopzet voor thuisadministratie.
+*   Trainers en coaches die digitale vaardigheden aanleren en een praktisch voorbeeld willen geven.
 
-## 💡 Tip
+## 💡 Tips
 
-Wil je deze structuur jaarlijks herhalen? Voeg dan jaartallen toe aan submappen zoals `Bankafschriften\2026`, `Reizen\2026`, enzovoort.
+*   Pas `map_structuur.txt` aan om de structuur perfect op jouw situatie af te stemmen.
+*   Bewaar de tool en `map_structuur.txt` op een handige plek voor jaarlijks gebruik.
 
 ## 📜 Licentie
 
-Deze batchfile is beschikbaar onder de [MIT License](LICENSE).
+Dit project is beschikbaar onder de [MIT License](LICENSE).
 
 ## ✍️ Auteur
 
-- **Remsey Mailjard**  
-  IT-trainer | Power Platform ontwikkelaar  
-  [remsey.nl](https://remsey.nl) • [GitHub](https://github.com/RemseyMailjard)
+*   **Remsey Mailjard**
+    *   IT-trainer | Power Platform ontwikkelaar
+    *   [remsey.nl](https://remsey.nl) • [LinkedIn](https://nl.linkedin.com/in/remseymailjard) • [GitHub](https://github.com/RemseyMailjard)

@@ -1,0 +1,74 @@
+; AI-FileOrganizer2.iss - Inno Setup installer script voor AI File Organizer
+
+[Setup]
+AppId={{A58EBE3F-C926-432E-B874-AD6F29494AC7}}
+AppName=AI File Organizer
+AppVersion=1.0.0.0
+AppPublisher=Remsey Mailjard
+AppPublisherURL=https://www.remsey.nl
+AppSupportURL=https://www.remsey.nl
+AppUpdatesURL=https://github.com/remseymailjard/remseymailjard-ai-fileorganizer2
+DefaultDirName={autopf}\AI File Organizer
+DefaultGroupName=AI File Organizer
+DisableProgramGroupPage=yes
+OutputDir=.\Output
+OutputBaseFilename=AIFileOrganizerSetup
+Compression=lzma
+SolidCompression=yes
+PrivilegesRequired=admin
+UninstallDisplayIcon={app}\AI-FileOrganizer2.exe
+LicenseFile=README_AI_File_Organizer.md
+
+[Languages]
+Name: "dutch"; MessagesFile: "compiler:Languages\Dutch.isl"
+Name: "english"; MessagesFile: "compiler:Default.isl"
+
+[Tasks]
+Name: "desktopicon"; Description: "Maak een snelkoppeling op het bureaublad"; GroupDescription: "Snelkoppelingen:"; Flags: checkedonce
+
+[Files]
+Source: "bin\Release\AI-FileOrganizer2.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "bin\Release\*.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "bin\Release\*.json"; DestDir: "{app}"; Flags: ignoreversion
+Source: "README_AI_File_Organizer.md"; DestDir: "{app}"; Flags: isreadme
+Source: "README.md"; DestDir: "{app}"
+Source: "App.config"; DestDir: "{app}"
+Source: "appsettings.json"; DestDir: "{app}"; Flags: ignoreversion
+; Voeg hier andere benodigde content-bestanden toe
+
+[Icons]
+Name: "{group}\AI File Organizer"; Filename: "{app}\AI-FileOrganizer2.exe"
+Name: "{commondesktop}\AI File Organizer"; Filename: "{app}\AI-FileOrganizer2.exe"; Tasks: desktopicon
+
+[Run]
+Filename: "{app}\AI-FileOrganizer2.exe"; Description: "AI File Organizer direct starten"; Flags: nowait postinstall skipifsilent
+
+[UninstallDelete]
+Type: filesandordirs; Name: "{app}"
+
+[Code]
+// Optioneel: Controleer op .NET Framework 4.8
+function IsDotNet48Installed(): Boolean;
+var
+  key: String;
+  success: Boolean;
+  version: Cardinal;
+begin
+  key := 'SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full';
+  success := RegQueryDWordValue(HKLM, key, 'Release', version);
+  // 528040 = .NET 4.8 op Windows 10/11
+  Result := success and (version >= 528040);
+end;
+
+function InitializeSetup(): Boolean;
+begin
+  if not IsDotNet48Installed() then
+  begin
+    MsgBox('AI File Organizer vereist .NET Framework 4.8 of hoger.' + #13#10 +
+      'Je wordt doorgestuurd naar de Microsoft downloadpagina.', mbInformation, MB_OK);
+    ShellExec('open', 'https://dotnet.microsoft.com/en-us/download/dotnet-framework/net48', '', '', SW_SHOWNORMAL, ewNoWait, false);
+    Result := False;
+  end
+  else
+    Result := True;
+end;

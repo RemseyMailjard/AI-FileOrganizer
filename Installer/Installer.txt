@@ -1,0 +1,75 @@
+AI File Organizer – Installatie Informatie
+
+Welkom bij de installatie van AI File Organizer!
+
+Deze applicatie helpt je automatisch je digitale documenten te ordenen en te hernoemen met behulp van kunstmatige intelligentie. Lees deze instructies aandachtig voor een soepele installatie en het juiste gebruik van AI-functies.
+
+------------------------------------------------------------
+Systeemvereisten
+
+- Windows 10 of hoger
+- .NET Framework 4.8 (de installer controleert dit automatisch)
+- Internetverbinding (voor gebruik van AI-functies)
+
+------------------------------------------------------------
+API-key verplicht voor AI
+
+Om de AI-functies te gebruiken heb je een geldige API-sleutel nodig van een van de volgende providers:
+- Google Gemini
+- OpenAI
+- Azure OpenAI
+
+Waarom een API-key?
+AI File Organizer gebruikt AI-diensten van externe aanbieders. Hiervoor is een persoonlijke API-key nodig om misbruik te voorkomen en jouw data veilig te houden. Je gebruikt je eigen account en behoudt volledige controle.
+
+------------------------------------------------------------
+Hoe verkrijg je een API-key?
+
+1. Google Gemini (aanbevolen)
+- Ga naar https://aistudio.google.com/
+- Log in met je Google-account.
+- Kies “API keys” en maak een nieuwe API-key aan.
+- Kopieer de sleutel en bewaar deze goed.
+
+2. OpenAI
+- Ga naar https://platform.openai.com/
+- Log in of maak een account aan.
+- Ga naar "API Keys" via je profiel en maak een nieuwe key.
+- Kopieer deze sleutel.
+
+3. Azure OpenAI
+- Log in bij https://portal.azure.com/
+- Maak een Azure OpenAI resource aan en vraag toegang aan.
+- Ga naar “Keys and Endpoint” en kopieer zowel de key als de endpoint-URL.
+
+------------------------------------------------------------
+API-key instellen na installatie
+
+1. Start AI File Organizer.
+2. Voer je API-key in bij het veld “API Key” en kies de juiste provider.
+3. Voor Azure OpenAI: vul ook het endpoint-veld in.
+4. Selecteer het gewenste AI-model.
+5. Je kunt nu direct beginnen met ordenen!
+
+------------------------------------------------------------
+Ondersteunde bestandssoorten
+
+- PDF (.pdf)
+- Word-documenten (.docx)
+- Tekstbestanden (.txt, .md)
+
+------------------------------------------------------------
+Privacy
+
+- Je API-sleutel wordt alleen lokaal opgeslagen.
+- Alleen tekstfragmenten uit je bestanden worden kort naar de AI-provider gestuurd, uitsluitend voor classificatie en naamgeving.
+- Er wordt geen data met derden gedeeld.
+
+------------------------------------------------------------
+Vragen of hulp?
+
+Website: https://remsey.nl
+LinkedIn: https://linkedin.com/in/remseymailjard
+
+Veel succes met digitaal organiseren!
+Team AI File Organizer
