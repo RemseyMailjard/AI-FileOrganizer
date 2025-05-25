@@ -126,6 +126,13 @@ namespace AI_FileOrganizer2
             txtAzureEndpoint.Visible = false;
 
             LoadApiKeyForSelectedProvider();
+            // Toon tip voor mappenstructuur
+            MessageBox.Show(
+                "🔔 Tip: Klik allereerst op ‘Standaardfolderstructuur’ (rechts in het midden) om een mappenstructuur aan te maken. Dit werkt zelfs zonder API key",
+                "Eerste stap: mappenstructuur maken",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information
+            );
         }
 
         /// <summary>
