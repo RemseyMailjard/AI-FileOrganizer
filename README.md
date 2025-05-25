@@ -1,11 +1,15 @@
 # AI File Organizer 🚀
 
-**AI File Organizer** is een slimme Windows-applicatie die jouw documenten automatisch organiseert en hernoemt met behulp van krachtige AI-modellen (Gemini, OpenAI, Azure OpenAI). Selecteer eenvoudig je bronmap en doelmap, kies een AI-provider, en de applicatie doet het werk voor je!
+**AI File Organizer** is een slimme Windows-applicatie die jouw documenten automatisch organiseert en hernoemt met behulp van krachtige AI-modellen (Gemini, OpenAI, Azure OpenAI).  Selecteer eenvoudig je bronmap en doelmap, kies een AI-provider, en de applicatie doet het werk voor je!  
 Met AI File Organizer bespaar je tijd, houd je overzicht en regelt AI al het organiseerwerk voor je.
 
+Deze applicatie scant, analyseert en organiseert je bestanden (PDF, DOCX, TXT, MD) automatisch in logische categorieën en submappen – volledig op basis van de inhoud. Daarnaast doet de app slimme suggesties voor duidelijke bestandsnamen, zodat je digitale archief altijd netjes blijft.
+
+**Voor wie?**  
+Voor iedereen die snel en moeiteloos orde wil scheppen in een grote verzameling digitale documenten – van thuisadministratie tot kleine bedrijven en zzp’ers.
+> **Let op:** Zorg dat billing/tegoed geactiveerd is bij je AI-provider (Gemini, OpenAI of Azure OpenAI).
 
 ![AI File Organizer Demo](Media/AIFileOrganizer_Demo.gif)
-
 
 👉 Bekijk de volledige walkthrough:
 
