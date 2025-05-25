@@ -51,7 +51,8 @@ echo     "!ROOT!"
 echo Voor het jaar: !TARGET_YEAR!
 echo Archief voor: !PREVIOUS_YEAR_ARCHIVE!
 echo ==============================================================
-echo Controleer de bovenstaande gegevens.
+rem Oude regel: echo Controleer de bovenstaande gegevens.
+echo Druk op Enter om de mappen definitief aan te maken, of sluit dit venster om te annuleren.
 pause
 echo.
 echo OK. Starten met aanmaken mappen...
