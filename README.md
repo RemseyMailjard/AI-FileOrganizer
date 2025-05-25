@@ -1,18 +1,17 @@
 # AI File Organizer 🚀
 
-Een slimme, gebruiksvriendelijke applicatie om je digitale documenten **automatisch te organiseren en te hernoemen** met behulp van AI (Gemini, OpenAI, Azure OpenAI).
+Een slimme applicatie die je digitale documenten **automatisch organiseert en hernoemt** met AI (Gemini, OpenAI, Azure OpenAI).
+
 ![AI File Organizer Demo](Media/AIFileOrganizer_Demo.gif)
 
-Ben je het zat om uren te besteden aan het handmatig sorteren en hernoemen van je digitale bestanden? AI File Organizer neemt dit werk uit handen!
-Deze slimme, gebruiksvriendelijke applicatie helpt je om **tijd te besparen, overzicht te creëren** en je digitale documenten **automatisch te organiseren en te hernoemen** met behulp van AI (Gemini, OpenAI, Azure OpenAI).
+**Geen zin meer in handmatig sorteren?**  
+Met AI File Organizer bespaar je tijd, houd je overzicht en regelt AI al het organiseerwerk voor je.
 
+👉 Bekijk de volledige walkthrough:
 
+[▶️ Bekijk de video-demo (MP4)](Media/AIFileOrganizer_CompleteWalkthrough.mp4)
 
-Bekijk hieronder de volledige video-demo:
-
-[▶️ Bekijk de volledige walkthrough (MP4)](Media/AIFileOrganizer_CompleteWalkthrough.mp4)
-
-![AI File Organizer Screenshot (GIF Demo)](https://github.com/RemseyMailjard/PersoonlijkeMappenGenerator/raw/main/PersoonlijkeMappenStructuurGenerator.gif)
+![Mappenstructuur GIF](https://github.com/RemseyMailjard/PersoonlijkeMappenGenerator/raw/main/PersoonlijkeMappenStructuurGenerator.gif)
 
 ---
 
