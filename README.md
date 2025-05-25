@@ -34,13 +34,12 @@ Deze slimme, gebruiksvriendelijke applicatie helpt je om **tijd te besparen, ove
 ## 📦 Installatie
 
 1.  Download de nieuwste installer uit de [`installer`](installer) map:
-    [AIFileOrganizerSetup.exe](installer/AIFileOrganizerSetup.exe)
+    [AIFileOrganizerSetup.exe](Installer/AIFileOrganizerSetup.exe)
 2.  Dubbelklik op het `AIFileOrganizerSetup.exe` bestand en volg de stappen in de installatie-wizard.
 3.  Start de applicatie via de snelkoppeling op je bureaublad of via het Startmenu.
 
 > **Let op:** Tijdens de installatie kan Windows om administratorrechten vragen om de software correct te installeren.
 
----
 
 ## 🗝️ API-key instellen
 
