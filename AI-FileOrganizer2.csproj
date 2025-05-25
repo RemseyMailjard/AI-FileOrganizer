@@ -272,9 +272,11 @@
     <Compile Include="Services\PdfTextExtractor.cs" />
     <Compile Include="Services\PlainTextExtractor.cs" />
     <Compile Include="Services\TextExtractionService.cs" />
+    <Compile Include="Utils\BatchOrExeRunner.cs" />
     <Compile Include="Utils\FileLogger.cs" />
     <Compile Include="Utils\FileUtil.cs" />
     <Compile Include="Utils\ILogger.cs" />
+    <Compile Include="Utils\PersoonlijkeMappenStructuurGenerator.cs" />
     <Compile Include="Utils\UiLogger.cs" />
     <EmbeddedResource Include="Form1.resx">
       <DependentUpon>Form1.cs</DependentUpon>
@@ -294,6 +296,12 @@
     <None Include="appsettings.json" />
     <None Include="Installer\AIFileOrganizerLinkedIn.zip" />
     <None Include="packages.config" />
+    <None Include="PersoonlijkeMappenGenerator\Persoonlijke Administratie.zip">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="PersoonlijkeMappenGenerator\PersoonlijkeMappenStructuurGenerator.bat" />
+    <None Include="PersoonlijkeMappenGenerator\README.md" />
+    <None Include="PersoonlijkeMappenGenerator\test2.bat" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
@@ -305,8 +313,6 @@
     </Compile>
     <None Include="README.md" />
     <None Include="README_AI_File_Organizer.md" />
-    <None Include="Scripts\PersoonlijkeMappenStructuurGenerator.bat" />
-    <None Include="Scripts\README.MD" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
@@ -330,8 +336,16 @@
     <Content Include="Installer\install.iss" />
     <Content Include="Installer\Installer.txt" />
     <Content Include="Installer\MIT License %28MIT-licentie%29.txt" />
-    <Content Include="Scripts\map_structuur.txt" />
-    <Content Include="Scripts\PersoonlijkeMappenStructuurGenerator.exe" />
+    <Content Include="Media\AIFileOrganizer_CompleteWalkthrough.mp4" />
+    <Content Include="Media\AIFileOrganizer_Demo.gif" />
+    <Content Include="PersoonlijkeMappenGenerator\.gitattributes" />
+    <Content Include="PersoonlijkeMappenGenerator\map_structuur.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="PersoonlijkeMappenGenerator\PersoonlijkeMappenStructuurGenerator.exe">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="PersoonlijkeMappenGenerator\PersoonlijkeMappenStructuurGenerator.gif" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

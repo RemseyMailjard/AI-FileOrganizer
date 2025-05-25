@@ -539,5 +539,19 @@ namespace AI_FileOrganizer2
             _cancellationTokenSource.Dispose();
             _cancellationTokenSource = null;
         }
+
+        private void btnGenerateStandardFolders_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                var generator = new AI_FileOrganizer2.Utils.PersoonlijkeMappenStructuurGenerator();
+                generator.Start();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Er is een fout opgetreden bij het aanmaken van de mappenstructuur:\n\n" + ex.Message, "Fout", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
     }
 }

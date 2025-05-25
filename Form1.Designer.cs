@@ -37,6 +37,7 @@
             this.btnStopOrganization = new System.Windows.Forms.Button();
             this.btnSaveLog = new System.Windows.Forms.Button();
             this.btnRenameSingleFile = new System.Windows.Forms.Button();
+            this.btnGenerateStandardFolders = new System.Windows.Forms.Button();
             this.progressBar1 = new System.Windows.Forms.ProgressBar();
             this.lblTokensUsed = new System.Windows.Forms.Label();
             this.rtbLog = new System.Windows.Forms.RichTextBox();
@@ -69,6 +70,7 @@
             this.tableLayoutPanel1.Controls.Add(this.btnStopOrganization, 1, 7);
             this.tableLayoutPanel1.Controls.Add(this.btnSaveLog, 2, 7);
             this.tableLayoutPanel1.Controls.Add(this.btnRenameSingleFile, 0, 8);
+            this.tableLayoutPanel1.Controls.Add(this.btnGenerateStandardFolders, 2, 8);
             this.tableLayoutPanel1.Controls.Add(this.progressBar1, 0, 9);
             this.tableLayoutPanel1.Controls.Add(this.lblTokensUsed, 2, 9);
             this.tableLayoutPanel1.Controls.Add(this.rtbLog, 0, 10);
@@ -280,15 +282,26 @@
             // 
             // btnRenameSingleFile
             // 
-            this.tableLayoutPanel1.SetColumnSpan(this.btnRenameSingleFile, 3);
+            this.tableLayoutPanel1.SetColumnSpan(this.btnRenameSingleFile, 2);
             this.btnRenameSingleFile.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnRenameSingleFile.Location = new System.Drawing.Point(3, 232);
             this.btnRenameSingleFile.Name = "btnRenameSingleFile";
-            this.btnRenameSingleFile.Size = new System.Drawing.Size(844, 30);
+            this.btnRenameSingleFile.Size = new System.Drawing.Size(674, 30);
             this.btnRenameSingleFile.TabIndex = 18;
             this.btnRenameSingleFile.Text = "Hernoem Enkel Bestand met AI";
             this.btnRenameSingleFile.UseVisualStyleBackColor = true;
             this.btnRenameSingleFile.Click += new System.EventHandler(this.btnRenameSingleFile_Click);
+            // 
+            // btnGenerateStandardFolders
+            // 
+            this.btnGenerateStandardFolders.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnGenerateStandardFolders.Location = new System.Drawing.Point(683, 232);
+            this.btnGenerateStandardFolders.Name = "btnGenerateStandardFolders";
+            this.btnGenerateStandardFolders.Size = new System.Drawing.Size(164, 30);
+            this.btnGenerateStandardFolders.TabIndex = 23;
+            this.btnGenerateStandardFolders.Text = "Standaardfolderstructuur";
+            this.btnGenerateStandardFolders.UseVisualStyleBackColor = true;
+            this.btnGenerateStandardFolders.Click += new System.EventHandler(this.btnGenerateStandardFolders_Click);
             // 
             // progressBar1
             // 
@@ -371,10 +384,11 @@
         private System.Windows.Forms.Button btnStartOrganization;
         private System.Windows.Forms.Button btnStopOrganization;
         private System.Windows.Forms.Button btnSaveLog;
+        private System.Windows.Forms.Button btnRenameSingleFile;
+        private System.Windows.Forms.Button btnGenerateStandardFolders; // TOEGEVOEGD!
         private System.Windows.Forms.ProgressBar progressBar1;
         private System.Windows.Forms.Label lblTokensUsed;
         private System.Windows.Forms.RichTextBox rtbLog;
         private System.Windows.Forms.LinkLabel linkLabelAuthor;
-        private System.Windows.Forms.Button btnRenameSingleFile;
     }
 }
