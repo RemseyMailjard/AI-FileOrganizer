@@ -1,7 +1,7 @@
-﻿// AI_FileOrganizer2/Services/ITextExtractor.cs
+﻿// AI_FileOrganizer/Services/ITextExtractor.cs
 using System.IO;
 
-namespace AI_FileOrganizer2.Services
+namespace AI_FileOrganizer.Services
 {
     public interface ITextExtractor
     {

@@ -1,10 +1,10 @@
-﻿// AI_FileOrganizer2/Services/CredentialStorageService.cs
+﻿// AI_FileOrganizer/Services/CredentialStorageService.cs
 using System;
 using CredentialManagement; // Vereist de CredentialManagement NuGet-package
-using AI_FileOrganizer2.Utils; // Voor ILogger
+using AI_FileOrganizer.Utils; // Voor ILogger
 using Newtonsoft.Json; // Voor het serialiseren van Azure-gegevens
 
-namespace AI_FileOrganizer2.Services
+namespace AI_FileOrganizer.Services
 {
     public class CredentialStorageService
     {

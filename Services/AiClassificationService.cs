@@ -7,9 +7,9 @@ using System.Text.RegularExpressions; // NIEUW: Nodig voor Regex.Replace
 using System.Threading;
 using System.Threading.Tasks;
 
-using AI_FileOrganizer2.Utils; // Nodig voor FileUtils en ILogger
+using AI_FileOrganizer.Utils; // Nodig voor FileUtils en ILogger
 
-namespace AI_FileOrganizer2.Services
+namespace AI_FileOrganizer.Services
 {
     public class AiClassificationService
     {

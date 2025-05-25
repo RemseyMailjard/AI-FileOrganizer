@@ -3,7 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 
-namespace AI_FileOrganizer2.Utils
+namespace AI_FileOrganizer.Utils
 {
     public static class FileUtils
     {

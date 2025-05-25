@@ -1,6 +1,6 @@
 ﻿using System.Windows.Forms;
 
-namespace AI_FileOrganizer2.Utils
+namespace AI_FileOrganizer.Utils
 {
     /// <summary>
     /// Logger die logt naar een RichTextBox in een WinForms UI.

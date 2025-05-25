@@ -1,13 +1,13 @@
-﻿// AI_FileOrganizer2/Services/DocxTextExtractor.cs
+﻿// AI_FileOrganizer/Services/DocxTextExtractor.cs
 using System;
 using System.IO;
 using System.Linq;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using DocumentFormat.OpenXml; // Voor OpenXmlPackageException
-using AI_FileOrganizer2.Utils; // Voor ILogger
+using AI_FileOrganizer.Utils; // Voor ILogger
 
-namespace AI_FileOrganizer2.Services
+namespace AI_FileOrganizer.Services
 {
     public class DocxTextExtractor : ITextExtractor
     {

@@ -1,4 +1,4 @@
-﻿namespace AI_FileOrganizer2
+﻿namespace AI_FileOrganizer
 {
     partial class Form1
     {

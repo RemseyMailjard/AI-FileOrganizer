@@ -1,4 +1,4 @@
-﻿// AI_FileOrganizer2/Services/AzureOpenAiProvider.cs
+﻿// AI_FileOrganizer/Services/AzureOpenAiProvider.cs
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,7 +9,7 @@ using Azure.AI.OpenAI;
 using Azure.AI.OpenAI.Chat;
 using OpenAI.Chat;
 
-namespace AI_FileOrganizer2.Services
+namespace AI_FileOrganizer.Services
 {
     public class AzureOpenAiProvider : IAiProvider
     {

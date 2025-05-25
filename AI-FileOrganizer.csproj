@@ -6,7 +6,7 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{A58EBE3F-C926-432E-B874-AD6F29494AC7}</ProjectGuid>
     <OutputType>WinExe</OutputType>
-    <RootNamespace>AI_FileOrganizer2</RootNamespace>
+    <RootNamespace>AI_FileOrganizer</RootNamespace>
     <AssemblyName>AI-FileOrganizer2</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
@@ -292,6 +292,7 @@
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
     </Compile>
     <None Include="appsettings.json" />
     <None Include="Installer\AIFileOrganizerLinkedIn.zip" />
@@ -332,10 +333,11 @@
   <ItemGroup />
   <ItemGroup>
     <Content Include="Installer\AI-applicatie.txt" />
+    <Content Include="Installer\AI-FolderInno.iss" />
     <Content Include="Installer\AIFileOrganizerSetup.exe" />
-    <Content Include="Installer\installer.iss" />
-    <Content Include="Installer\Installer.txt" />
+    <Content Include="Installer\installatie-informatie.txt" />
     <Content Include="Installer\MIT License %28MIT-licentie%29.txt" />
+    <Content Include="Installer\na-installatie-informatie.txt" />
     <Content Include="Media\AIFileOrganizer_CompleteWalkthrough.mp4" />
     <Content Include="Media\AIFileOrganizer_Demo.gif" />
     <Content Include="PersoonlijkeMappenGenerator\.gitattributes" />

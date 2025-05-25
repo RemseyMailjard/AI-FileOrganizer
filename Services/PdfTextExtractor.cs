@@ -1,4 +1,4 @@
-﻿// AI_FileOrganizer2/Services/PdfTextExtractor.cs
+﻿// AI_FileOrganizer/Services/PdfTextExtractor.cs
 using System;
 using System.IO;
 using System.Linq;
@@ -9,9 +9,9 @@ using UglyToad.PdfPig.DocumentLayoutAnalysis.ReadingOrderDetector; // Voor Unsup
 using UglyToad.PdfPig.DocumentLayoutAnalysis.WordExtractor; // Voor NearestNeighbourWordExtractor
 using UglyToad.PdfPig.Core;
 
-using AI_FileOrganizer2.Utils; // Voor ILogger
+using AI_FileOrganizer.Utils; // Voor ILogger
 
-namespace AI_FileOrganizer2.Services
+namespace AI_FileOrganizer.Services
 {
     public class PdfTextExtractor : ITextExtractor
     {

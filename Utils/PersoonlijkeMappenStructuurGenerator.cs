@@ -2,7 +2,7 @@
 using System.IO;
 using System.Windows.Forms;
 
-namespace AI_FileOrganizer2.Utils
+namespace AI_FileOrganizer.Utils
 {
     public class PersoonlijkeMappenStructuurGenerator
     {

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace AI_FileOrganizer2.Utils
+namespace AI_FileOrganizer.Utils
 {
     /// <summary>
     /// Een eenvoudige logging interface zodat je makkelijk van logger kunt wisselen.

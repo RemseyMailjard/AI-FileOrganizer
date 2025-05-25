@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace AI_FileOrganizer2.Models
+namespace AI_FileOrganizer.Models
 {
     public static class ApplicationSettings
     {

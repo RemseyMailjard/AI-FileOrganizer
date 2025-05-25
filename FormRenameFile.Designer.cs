@@ -1,6 +1,6 @@
 ﻿using System.Linq; // Although not strictly needed for designer code, it was in your original.
 
-namespace AI_FileOrganizer2
+namespace AI_FileOrganizer
 {
     partial class FormRenameFile
     {

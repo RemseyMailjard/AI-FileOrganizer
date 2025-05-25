@@ -9,12 +9,12 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using Microsoft.WindowsAPICodePack.Dialogs; 
 
-using AI_FileOrganizer2.Services;
-using AI_FileOrganizer2.Utils;
-using AI_FileOrganizer2.Models; 
-using ILogger = AI_FileOrganizer2.Utils.ILogger;
+using AI_FileOrganizer.Services;
+using AI_FileOrganizer.Utils;
+using AI_FileOrganizer.Models; 
+using ILogger = AI_FileOrganizer.Utils.ILogger;
 
-namespace AI_FileOrganizer2
+namespace AI_FileOrganizer
 {
     public partial class Form1 : Form
     {
@@ -551,7 +551,7 @@ namespace AI_FileOrganizer2
         {
             try
             {
-                var generator = new AI_FileOrganizer2.Utils.PersoonlijkeMappenStructuurGenerator();
+                var generator = new AI_FileOrganizer.Utils.PersoonlijkeMappenStructuurGenerator();
                 generator.Start();
             }
             catch (Exception ex)

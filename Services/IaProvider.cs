@@ -1,8 +1,8 @@
-﻿// AI_FileOrganizer2/Services/IAiProvider.cs
+﻿// AI_FileOrganizer/Services/IAiProvider.cs
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace AI_FileOrganizer2.Services
+namespace AI_FileOrganizer.Services
 {
     public interface IAiProvider
     {

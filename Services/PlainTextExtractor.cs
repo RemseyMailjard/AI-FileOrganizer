@@ -1,9 +1,9 @@
-﻿// AI_FileOrganizer2/Services/PlainTextExtractor.cs
+﻿// AI_FileOrganizer/Services/PlainTextExtractor.cs
 using System;
 using System.IO;
-using AI_FileOrganizer2.Utils; // Voor ILogger
+using AI_FileOrganizer.Utils; // Voor ILogger
 
-namespace AI_FileOrganizer2.Services
+namespace AI_FileOrganizer.Services
 {
     public class PlainTextExtractor : ITextExtractor
     {

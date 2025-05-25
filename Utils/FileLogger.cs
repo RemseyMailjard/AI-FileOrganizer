@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
 
-namespace AI_FileOrganizer2.Utils
+namespace AI_FileOrganizer.Utils
 {
     /// <summary>
     /// Logger die logt naar een tekstbestand. Werkt thread-safe.

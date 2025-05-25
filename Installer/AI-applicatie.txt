@@ -234,7 +234,7 @@ FILE: AI-FileOrganizer2.csproj
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{A58EBE3F-C926-432E-B874-AD6F29494AC7}</ProjectGuid>
     <OutputType>WinExe</OutputType>
-    <RootNamespace>AI_FileOrganizer2</RootNamespace>
+    <RootNamespace>AI_FileOrganizer</RootNamespace>
     <AssemblyName>AI-FileOrganizer2</AssemblyName>
     <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
@@ -645,7 +645,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace AI_FileOrganizer2
+namespace AI_FileOrganizer
 {
   class appsettings
   {
@@ -670,12 +670,12 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using Microsoft.WindowsAPICodePack.Dialogs; 
 
-using AI_FileOrganizer2.Services;
-using AI_FileOrganizer2.Utils;
-using AI_FileOrganizer2.Models; 
-using ILogger = AI_FileOrganizer2.Utils.ILogger;
+using AI_FileOrganizer.Services;
+using AI_FileOrganizer.Utils;
+using AI_FileOrganizer.Models; 
+using ILogger = AI_FileOrganizer.Utils.ILogger;
 
-namespace AI_FileOrganizer2
+namespace AI_FileOrganizer
 {
     public partial class Form1 : Form
     {
@@ -1208,7 +1208,7 @@ namespace AI_FileOrganizer2
 ================================================
 FILE: Form1.Designer.cs
 ================================================
-﻿namespace AI_FileOrganizer2
+﻿namespace AI_FileOrganizer
 {
     partial class Form1
     {
@@ -1724,7 +1724,7 @@ using System.IO;
 using System.Linq; // This using statement is explicitly needed for .Any() and .Contains()
 using System.Windows.Forms;
 
-namespace AI_FileOrganizer2
+namespace AI_FileOrganizer
 {
     public partial class FormRenameFile : Form
     {
@@ -1787,7 +1787,7 @@ FILE: FormRenameFile.Designer.cs
 ================================================
 ﻿using System.Linq; // Although not strictly needed for designer code, it was in your original.
 
-namespace AI_FileOrganizer2
+namespace AI_FileOrganizer
 {
     partial class FormRenameFile
     {
@@ -2112,7 +2112,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
-namespace AI_FileOrganizer2
+namespace AI_FileOrganizer
 {
     internal static class Program
     {
@@ -2201,7 +2201,7 @@ FILE: Models/ApplicationSettings.cs
 ================================================
 ﻿using System.Collections.Generic;
 
-namespace AI_FileOrganizer2.Models
+namespace AI_FileOrganizer.Models
 {
     public static class ApplicationSettings
     {
@@ -2290,7 +2290,7 @@ FILE: Properties/Resources.Designer.cs
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace AI_FileOrganizer2.Properties
+namespace AI_FileOrganizer.Properties
 {
 
 
@@ -2326,7 +2326,7 @@ namespace AI_FileOrganizer2.Properties
             {
                 if ((resourceMan == null))
                 {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("AI_FileOrganizer2.Properties.Resources", typeof(Resources).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("AI_FileOrganizer.Properties.Resources", typeof(Resources).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -2489,7 +2489,7 @@ FILE: Properties/Settings.Designer.cs
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace AI_FileOrganizer2.Properties
+namespace AI_FileOrganizer.Properties
 {
 
 
@@ -2537,9 +2537,9 @@ using System.Text.RegularExpressions; // NIEUW: Nodig voor Regex.Replace
 using System.Threading;
 using System.Threading.Tasks;
 
-using AI_FileOrganizer2.Utils; // Nodig voor FileUtils en ILogger
+using AI_FileOrganizer.Utils; // Nodig voor FileUtils en ILogger
 
-namespace AI_FileOrganizer2.Services
+namespace AI_FileOrganizer.Services
 {
     public class AiClassificationService
     {
@@ -3044,7 +3044,7 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
 ================================================
 FILE: Services/AzureOpenAiProvider.cs
 ================================================
-﻿// AI_FileOrganizer2/Services/AzureOpenAiProvider.cs
+﻿// AI_FileOrganizer/Services/AzureOpenAiProvider.cs
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -3055,7 +3055,7 @@ using Azure.AI.OpenAI;
 using Azure.AI.OpenAI.Chat;
 using OpenAI.Chat;
 
-namespace AI_FileOrganizer2.Services
+namespace AI_FileOrganizer.Services
 {
     public class AzureOpenAiProvider : IAiProvider
     {
@@ -3132,13 +3132,13 @@ namespace AI_FileOrganizer2.Services
 ================================================
 FILE: Services/CredentialStorageService.cs
 ================================================
-﻿// AI_FileOrganizer2/Services/CredentialStorageService.cs
+﻿// AI_FileOrganizer/Services/CredentialStorageService.cs
 using System;
 using CredentialManagement; // Vereist de CredentialManagement NuGet-package
-using AI_FileOrganizer2.Utils; // Voor ILogger
+using AI_FileOrganizer.Utils; // Voor ILogger
 using Newtonsoft.Json; // Voor het serialiseren van Azure-gegevens
 
-namespace AI_FileOrganizer2.Services
+namespace AI_FileOrganizer.Services
 {
     public class CredentialStorageService
     {
@@ -3284,16 +3284,16 @@ namespace AI_FileOrganizer2.Services
 ================================================
 FILE: Services/DocxTextExtractor.cs
 ================================================
-﻿// AI_FileOrganizer2/Services/DocxTextExtractor.cs
+﻿// AI_FileOrganizer/Services/DocxTextExtractor.cs
 using System;
 using System.IO;
 using System.Linq;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using DocumentFormat.OpenXml; // Voor OpenXmlPackageException
-using AI_FileOrganizer2.Utils; // Voor ILogger
+using AI_FileOrganizer.Utils; // Voor ILogger
 
-namespace AI_FileOrganizer2.Services
+namespace AI_FileOrganizer.Services
 {
     public class DocxTextExtractor : ITextExtractor
     {
@@ -3358,8 +3358,8 @@ namespace AI_FileOrganizer2.Services
 ================================================
 FILE: Services/FileOrganizerService.cs
 ================================================
-﻿using AI_FileOrganizer2.Models; // For ApplicationSettings
-using AI_FileOrganizer2.Utils;
+﻿using AI_FileOrganizer.Models; // For ApplicationSettings
+using AI_FileOrganizer.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -3369,7 +3369,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms; // Needed for DialogResult
 
-namespace AI_FileOrganizer2.Services
+namespace AI_FileOrganizer.Services
 {
     public class FileOrganizerService
     {
@@ -3875,7 +3875,7 @@ namespace AI_FileOrganizer2.Services
 ================================================
 FILE: Services/GeminiAiProvider.cs
 ================================================
-﻿// AI_FileOrganizer2/Services/GeminiAiProvider.cs
+﻿// AI_FileOrganizer/Services/GeminiAiProvider.cs
 using System;
 using System.Net.Http;
 using System.Text;
@@ -3883,7 +3883,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 
-namespace AI_FileOrganizer2.Services
+namespace AI_FileOrganizer.Services
 {
     public class GeminiAiProvider : IAiProvider
     {
@@ -3972,11 +3972,11 @@ namespace AI_FileOrganizer2.Services
 ================================================
 FILE: Services/IaProvider.cs
 ================================================
-﻿// AI_FileOrganizer2/Services/IAiProvider.cs
+﻿// AI_FileOrganizer/Services/IAiProvider.cs
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace AI_FileOrganizer2.Services
+namespace AI_FileOrganizer.Services
 {
     public interface IAiProvider
     {
@@ -3997,10 +3997,10 @@ namespace AI_FileOrganizer2.Services
 ================================================
 FILE: Services/ITextExtractor.cs
 ================================================
-﻿// AI_FileOrganizer2/Services/ITextExtractor.cs
+﻿// AI_FileOrganizer/Services/ITextExtractor.cs
 using System.IO;
 
-namespace AI_FileOrganizer2.Services
+namespace AI_FileOrganizer.Services
 {
     public interface ITextExtractor
     {
@@ -4024,7 +4024,7 @@ namespace AI_FileOrganizer2.Services
 ================================================
 FILE: Services/OpenAiProvider.cs
 ================================================
-﻿// AI_FileOrganizer2/Services/OpenAiProvider.cs
+﻿// AI_FileOrganizer/Services/OpenAiProvider.cs
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -4033,7 +4033,7 @@ using System.Threading.Tasks;
 using OpenAI;
 using OpenAI.Chat;
 
-namespace AI_FileOrganizer2.Services
+namespace AI_FileOrganizer.Services
 {
     public class OpenAiProvider : IAiProvider
     {
@@ -4099,7 +4099,7 @@ namespace AI_FileOrganizer2.Services
 ================================================
 FILE: Services/PdfTextExtractor.cs
 ================================================
-﻿// AI_FileOrganizer2/Services/PdfTextExtractor.cs
+﻿// AI_FileOrganizer/Services/PdfTextExtractor.cs
 using System;
 using System.IO;
 using System.Linq;
@@ -4110,9 +4110,9 @@ using UglyToad.PdfPig.DocumentLayoutAnalysis.ReadingOrderDetector; // Voor Unsup
 using UglyToad.PdfPig.DocumentLayoutAnalysis.WordExtractor; // Voor NearestNeighbourWordExtractor
 using UglyToad.PdfPig.Core;
 
-using AI_FileOrganizer2.Utils; // Voor ILogger
+using AI_FileOrganizer.Utils; // Voor ILogger
 
-namespace AI_FileOrganizer2.Services
+namespace AI_FileOrganizer.Services
 {
     public class PdfTextExtractor : ITextExtractor
     {
@@ -4238,12 +4238,12 @@ namespace AI_FileOrganizer2.Services
 ================================================
 FILE: Services/PlainTextExtractor.cs
 ================================================
-﻿// AI_FileOrganizer2/Services/PlainTextExtractor.cs
+﻿// AI_FileOrganizer/Services/PlainTextExtractor.cs
 using System;
 using System.IO;
-using AI_FileOrganizer2.Utils; // Voor ILogger
+using AI_FileOrganizer.Utils; // Voor ILogger
 
-namespace AI_FileOrganizer2.Services
+namespace AI_FileOrganizer.Services
 {
     public class PlainTextExtractor : ITextExtractor
     {
@@ -4294,13 +4294,13 @@ namespace AI_FileOrganizer2.Services
 ================================================
 FILE: Services/TextExtractionService.cs
 ================================================
-﻿using AI_FileOrganizer2.Utils;
+﻿using AI_FileOrganizer.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
-namespace AI_FileOrganizer2.Services
+namespace AI_FileOrganizer.Services
 {
     public class TextExtractionService
     {
@@ -4357,7 +4357,7 @@ FILE: Utils/FileLogger.cs
 ﻿using System;
 using System.IO;
 
-namespace AI_FileOrganizer2.Utils
+namespace AI_FileOrganizer.Utils
 {
     /// <summary>
     /// Logger die logt naar een tekstbestand. Werkt thread-safe.
@@ -4393,7 +4393,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 
-namespace AI_FileOrganizer2.Utils
+namespace AI_FileOrganizer.Utils
 {
     public static class FileUtils
     {
@@ -4490,7 +4490,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace AI_FileOrganizer2.Utils
+namespace AI_FileOrganizer.Utils
 {
     /// <summary>
     /// Een eenvoudige logging interface zodat je makkelijk van logger kunt wisselen.
@@ -4510,7 +4510,7 @@ FILE: Utils/UiLogger.cs
 ================================================
 ﻿using System.Windows.Forms;
 
-namespace AI_FileOrganizer2.Utils
+namespace AI_FileOrganizer.Utils
 {
     /// <summary>
     /// Logger die logt naar een RichTextBox in een WinForms UI.

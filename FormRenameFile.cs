@@ -3,7 +3,7 @@ using System.IO;
 using System.Linq; // This using statement is explicitly needed for .Any() and .Contains()
 using System.Windows.Forms;
 
-namespace AI_FileOrganizer2
+namespace AI_FileOrganizer
 {
     public partial class FormRenameFile : Form
     {

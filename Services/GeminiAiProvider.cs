@@ -1,4 +1,4 @@
-﻿// AI_FileOrganizer2/Services/GeminiAiProvider.cs
+﻿// AI_FileOrganizer/Services/GeminiAiProvider.cs
 using System;
 using System.Net.Http;
 using System.Text;
@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 
-namespace AI_FileOrganizer2.Services
+namespace AI_FileOrganizer.Services
 {
     public class GeminiAiProvider : IAiProvider
     {

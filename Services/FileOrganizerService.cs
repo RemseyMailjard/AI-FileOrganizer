@@ -1,5 +1,5 @@
-﻿using AI_FileOrganizer2.Models; // For ApplicationSettings
-using AI_FileOrganizer2.Utils;
+﻿using AI_FileOrganizer.Models; // For ApplicationSettings
+using AI_FileOrganizer.Utils;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -9,7 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms; // Needed for DialogResult
 
-namespace AI_FileOrganizer2.Services
+namespace AI_FileOrganizer.Services
 {
     public class FileOrganizerService
     {

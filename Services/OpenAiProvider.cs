@@ -1,4 +1,4 @@
-﻿// AI_FileOrganizer2/Services/OpenAiProvider.cs
+﻿// AI_FileOrganizer/Services/OpenAiProvider.cs
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using OpenAI;
 using OpenAI.Chat;
 
-namespace AI_FileOrganizer2.Services
+namespace AI_FileOrganizer.Services
 {
     public class OpenAiProvider : IAiProvider
     {
