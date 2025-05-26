@@ -100,9 +100,9 @@
             // 
             this.lblProvider.Anchor = System.Windows.Forms.AnchorStyles.Left;
             this.lblProvider.AutoSize = true;
-            this.lblProvider.Location = new System.Drawing.Point(3, 6);
+            this.lblProvider.Location = new System.Drawing.Point(3, 5);
             this.lblProvider.Name = "lblProvider";
-            this.lblProvider.Size = new System.Drawing.Size(61, 16);
+            this.lblProvider.Size = new System.Drawing.Size(65, 17);
             this.lblProvider.TabIndex = 0;
             this.lblProvider.Text = "Provider:";
             // 
@@ -125,9 +125,9 @@
             // 
             this.lblApiKey.Anchor = System.Windows.Forms.AnchorStyles.Left;
             this.lblApiKey.AutoSize = true;
-            this.lblApiKey.Location = new System.Drawing.Point(3, 34);
+            this.lblApiKey.Location = new System.Drawing.Point(3, 33);
             this.lblApiKey.Name = "lblApiKey";
-            this.lblApiKey.Size = new System.Drawing.Size(105, 16);
+            this.lblApiKey.Size = new System.Drawing.Size(111, 17);
             this.lblApiKey.TabIndex = 2;
             this.lblApiKey.Text = "Google API Key:";
             // 
@@ -145,9 +145,9 @@
             // 
             this.lblAzureEndpoint.Anchor = System.Windows.Forms.AnchorStyles.Left;
             this.lblAzureEndpoint.AutoSize = true;
-            this.lblAzureEndpoint.Location = new System.Drawing.Point(3, 62);
+            this.lblAzureEndpoint.Location = new System.Drawing.Point(3, 61);
             this.lblAzureEndpoint.Name = "lblAzureEndpoint";
-            this.lblAzureEndpoint.Size = new System.Drawing.Size(100, 16);
+            this.lblAzureEndpoint.Size = new System.Drawing.Size(109, 17);
             this.lblAzureEndpoint.TabIndex = 4;
             this.lblAzureEndpoint.Text = "Azure Endpoint:";
             this.lblAzureEndpoint.Visible = false;
@@ -166,9 +166,9 @@
             // 
             this.lblSourceFolder.Anchor = System.Windows.Forms.AnchorStyles.Left;
             this.lblSourceFolder.AutoSize = true;
-            this.lblSourceFolder.Location = new System.Drawing.Point(3, 90);
+            this.lblSourceFolder.Location = new System.Drawing.Point(3, 89);
             this.lblSourceFolder.Name = "lblSourceFolder";
-            this.lblSourceFolder.Size = new System.Drawing.Size(95, 16);
+            this.lblSourceFolder.Size = new System.Drawing.Size(101, 17);
             this.lblSourceFolder.TabIndex = 6;
             this.lblSourceFolder.Text = "Source Folder:";
             // 
@@ -195,9 +195,9 @@
             // 
             this.lblDestinationFolder.Anchor = System.Windows.Forms.AnchorStyles.Left;
             this.lblDestinationFolder.AutoSize = true;
-            this.lblDestinationFolder.Location = new System.Drawing.Point(3, 118);
+            this.lblDestinationFolder.Location = new System.Drawing.Point(3, 117);
             this.lblDestinationFolder.Name = "lblDestinationFolder";
-            this.lblDestinationFolder.Size = new System.Drawing.Size(119, 16);
+            this.lblDestinationFolder.Size = new System.Drawing.Size(127, 17);
             this.lblDestinationFolder.TabIndex = 9;
             this.lblDestinationFolder.Text = "Destination Folder:";
             // 
@@ -224,9 +224,9 @@
             // 
             this.lblModel.Anchor = System.Windows.Forms.AnchorStyles.Left;
             this.lblModel.AutoSize = true;
-            this.lblModel.Location = new System.Drawing.Point(3, 146);
+            this.lblModel.Location = new System.Drawing.Point(3, 145);
             this.lblModel.Name = "lblModel";
-            this.lblModel.Size = new System.Drawing.Size(48, 16);
+            this.lblModel.Size = new System.Drawing.Size(50, 17);
             this.lblModel.TabIndex = 12;
             this.lblModel.Text = "Model:";
             // 
@@ -247,7 +247,7 @@
             this.tableLayoutPanel1.SetColumnSpan(this.chkRenameFiles, 3);
             this.chkRenameFiles.Location = new System.Drawing.Point(3, 171);
             this.chkRenameFiles.Name = "chkRenameFiles";
-            this.chkRenameFiles.Size = new System.Drawing.Size(213, 19);
+            this.chkRenameFiles.Size = new System.Drawing.Size(224, 19);
             this.chkRenameFiles.TabIndex = 14;
             this.chkRenameFiles.Text = "Bestandsnamen AI hernoemen";
             // 
@@ -300,7 +300,7 @@
             this.btnGenerateStandardFolders.Name = "btnGenerateStandardFolders";
             this.btnGenerateStandardFolders.Size = new System.Drawing.Size(164, 30);
             this.btnGenerateStandardFolders.TabIndex = 23;
-            this.btnGenerateStandardFolders.Text = "Standaardfolderstructuur";
+            this.btnGenerateStandardFolders.Text = "Maak folders";
             this.btnGenerateStandardFolders.UseVisualStyleBackColor = true;
             this.btnGenerateStandardFolders.Click += new System.EventHandler(this.btnGenerateStandardFolders_Click);
             // 
@@ -318,9 +318,9 @@
             // 
             this.lblTokensUsed.Anchor = System.Windows.Forms.AnchorStyles.Right;
             this.lblTokensUsed.AutoSize = true;
-            this.lblTokensUsed.Location = new System.Drawing.Point(730, 268);
+            this.lblTokensUsed.Location = new System.Drawing.Point(721, 267);
             this.lblTokensUsed.Name = "lblTokensUsed";
-            this.lblTokensUsed.Size = new System.Drawing.Size(117, 16);
+            this.lblTokensUsed.Size = new System.Drawing.Size(126, 17);
             this.lblTokensUsed.TabIndex = 20;
             this.lblTokensUsed.Text = "Tokens gebruikt: 0";
             // 
@@ -340,9 +340,9 @@
             this.linkLabelAuthor.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.linkLabelAuthor.AutoSize = true;
             this.tableLayoutPanel1.SetColumnSpan(this.linkLabelAuthor, 3);
-            this.linkLabelAuthor.Location = new System.Drawing.Point(682, 462);
+            this.linkLabelAuthor.Location = new System.Drawing.Point(677, 461);
             this.linkLabelAuthor.Name = "linkLabelAuthor";
-            this.linkLabelAuthor.Size = new System.Drawing.Size(165, 16);
+            this.linkLabelAuthor.Size = new System.Drawing.Size(170, 17);
             this.linkLabelAuthor.TabIndex = 22;
             this.linkLabelAuthor.TabStop = true;
             this.linkLabelAuthor.Text = "Made by Remsey Mailjard";

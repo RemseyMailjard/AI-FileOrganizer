@@ -70,7 +70,7 @@
     <StartupObject>AI_FileOrganizer.Program</StartupObject>
   </PropertyGroup>
   <PropertyGroup>
-    <SignAssembly>true</SignAssembly>
+    <SignAssembly>false</SignAssembly>
   </PropertyGroup>
   <PropertyGroup>
     <AssemblyOriginatorKeyFile>AIFileOrganizerKey.snk.pfx</AssemblyOriginatorKeyFile>
@@ -359,6 +359,9 @@
     <Content Include="Media\AIFileOrganizer_CompleteWalkthrough.mp4" />
     <Content Include="Media\AIFileOrganizer_Demo.gif" />
     <EmbeddedResource Include="Media\logo_4.ico" />
+    <Content Include="Media\logo.ico" />
+    <Content Include="Media\logo.png" />
+    <Content Include="Media\logo_4.png" />
     <Content Include="PersoonlijkeMappenGenerator\.gitattributes" />
     <Content Include="PersoonlijkeMappenGenerator\map_structuur.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

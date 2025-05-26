@@ -2,10 +2,10 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "AI-FileOrganizer"
-#define MyAppVersion "1.6"
+#define MyAppVersion "1.7"
 #define MyAppPublisher "Skills4-IT"
 #define MyAppURL "https://www.aibuddies.nl"
-#define MyAppExeName "AI-FileOrganizer2.exe"
+#define MyAppExeName "AI-FileOrganizer.exe"
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
@@ -22,11 +22,11 @@ DefaultDirName={autopf}\{#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
 DisableProgramGroupPage=yes
 LicenseFile=C:\Users\Remse\Desktop\Mijn portfolio\Applicaties\AI-FileOrganizer\Installer\MIT License (MIT-licentie).txt
-InfoBeforeFile=C:\Users\Remse\Desktop\Mijn portfolio\Applicaties\AI-FileOrganizer\Installer\Installer.txt
+InfoBeforeFile=C:\Users\Remse\Desktop\Mijn portfolio\Applicaties\AI-FileOrganizer\Installer\installatie-informatie.txt
 ; Remove the following line to run in administrative install mode (install for all users).
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
-OutputDir=C:\Users\Remse\Desktop\AI-bestandsorganizer
+OutputDir=C:\Users\Remse\Desktop\Mijn portfolio\Applicaties\AI-FileOrganizer\Installer
 OutputBaseFilename=AI-FileOrganizerSetup
 SetupIconFile=
 SolidCompression=yes
@@ -40,11 +40,11 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "C:\Users\Remse\Desktop\Mijn portfolio\Applicaties\AI-FileOrganizer\bin\Release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\Remse\Desktop\Mijn portfolio\Applicaties\AI-FileOrganizer\bin\Release\AI-FileOrganizer2.application"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\Remse\Desktop\Mijn portfolio\Applicaties\AI-FileOrganizer\bin\Release\AI-FileOrganizer2.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\Remse\Desktop\Mijn portfolio\Applicaties\AI-FileOrganizer\bin\Release\AI-FileOrganizer2.exe.config"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\Remse\Desktop\Mijn portfolio\Applicaties\AI-FileOrganizer\bin\Release\AI-FileOrganizer2.exe.manifest"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Users\Remse\Desktop\Mijn portfolio\Applicaties\AI-FileOrganizer\bin\Release\AI-FileOrganizer2.pdb"; DestDir: "{app}"; Flags: ignoreversion
+Source: "C:\Users\Remse\Desktop\Mijn portfolio\Applicaties\AI-FileOrganizer\bin\Release\AI-FileOrganizer.application"; DestDir: "{app}"; Flags: ignoreversion
+Source: "C:\Users\Remse\Desktop\Mijn portfolio\Applicaties\AI-FileOrganizer\bin\Release\AI-FileOrganizer.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "C:\Users\Remse\Desktop\Mijn portfolio\Applicaties\AI-FileOrganizer\bin\Release\AI-FileOrganizer.exe.config"; DestDir: "{app}"; Flags: ignoreversion
+Source: "C:\Users\Remse\Desktop\Mijn portfolio\Applicaties\AI-FileOrganizer\bin\Release\AI-FileOrganizer.exe.manifest"; DestDir: "{app}"; Flags: ignoreversion
+Source: "C:\Users\Remse\Desktop\Mijn portfolio\Applicaties\AI-FileOrganizer\bin\Release\AI-FileOrganizer.pdb"; DestDir: "{app}"; Flags: ignoreversion
 Source: "C:\Users\Remse\Desktop\Mijn portfolio\Applicaties\AI-FileOrganizer\bin\Release\Azure.AI.OpenAI.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "C:\Users\Remse\Desktop\Mijn portfolio\Applicaties\AI-FileOrganizer\bin\Release\Azure.AI.OpenAI.xml"; DestDir: "{app}"; Flags: ignoreversion
 Source: "C:\Users\Remse\Desktop\Mijn portfolio\Applicaties\AI-FileOrganizer\bin\Release\Azure.Core.dll"; DestDir: "{app}"; Flags: ignoreversion
