@@ -177,7 +177,7 @@
             this.txtSourceFolder.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
             this.txtSourceFolder.Location = new System.Drawing.Point(173, 87);
             this.txtSourceFolder.Name = "txtSourceFolder";
-            this.txtSourceFolder.ReadOnly = true;
+            this.txtSourceFolder.ReadOnly = false;
             this.txtSourceFolder.Size = new System.Drawing.Size(504, 22);
             this.txtSourceFolder.TabIndex = 7;
             // 
@@ -206,7 +206,7 @@
             this.txtDestinationFolder.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
             this.txtDestinationFolder.Location = new System.Drawing.Point(173, 115);
             this.txtDestinationFolder.Name = "txtDestinationFolder";
-            this.txtDestinationFolder.ReadOnly = true;
+            this.txtDestinationFolder.ReadOnly = false;
             this.txtDestinationFolder.Size = new System.Drawing.Size(504, 22);
             this.txtDestinationFolder.TabIndex = 10;
             // 
