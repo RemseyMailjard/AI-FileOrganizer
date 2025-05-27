@@ -1,4 +1,5 @@
-﻿using AI_FileOrganizer.Models; // For ApplicationSettings
+﻿// AI_FileOrganizer/Services/FileOrganizerService.cs
+using AI_FileOrganizer.Models; // For ApplicationSettings
 using AI_FileOrganizer.Utils;
 using System;
 using System.Collections.Generic;
@@ -25,9 +26,7 @@ namespace AI_FileOrganizer.Services
         // Callback for interactive rename. Returns (DialogResult, newFileName, skipFile)
         public event Func<string, string, Task<(DialogResult result, string newFileName, bool skipFile)>> RequestRenameFile;
 
-        // Note: _totalTokensUsed tracking needs to be properly implemented within IAiProvider for accurate reporting.
-        // For now, it's a placeholder.
-        private long _totalTokensUsed = 0;
+        private long _totalTokensUsed = 0; // This will now be updated
 
         public FileOrganizerService(
             ILogger logger,
@@ -178,6 +177,10 @@ namespace AI_FileOrganizer.Services
                     modelName,
                     cancellationToken
                 );
+                // <<< UPDATE TOKEN COUNT >>>
+                _totalTokensUsed += _aiService.LastCallSimulatedTokensUsed;
+                TokensUsedUpdated?.Invoke(_totalTokensUsed);
+
 
                 // Request UI interaction for rename
                 if (RequestRenameFile == null)
@@ -300,12 +303,16 @@ namespace AI_FileOrganizer.Services
 
             string llmCategoryChoice = await _aiService.ClassifyCategoryAsync(
                 extractedText,
-                filePath,
+                filePath, // Pass originalFilename here
                 ApplicationSettings.FolderCategories.Keys.ToList(),
                 currentAiProvider,
                 modelName,
                 cancellationToken
             );
+            // <<< UPDATE TOKEN COUNT >>>
+            _totalTokensUsed += _aiService.LastCallSimulatedTokensUsed;
+            TokensUsedUpdated?.Invoke(_totalTokensUsed);
+
 
             if (string.IsNullOrWhiteSpace(llmCategoryChoice))
             {
@@ -330,6 +337,9 @@ namespace AI_FileOrganizer.Services
                 modelName,
                 cancellationToken
             );
+            // <<< UPDATE TOKEN COUNT >>>
+            _totalTokensUsed += _aiService.LastCallSimulatedTokensUsed;
+            TokensUsedUpdated?.Invoke(_totalTokensUsed);
 
             if (!string.IsNullOrWhiteSpace(subfolderNameSuggestion))
             {
@@ -382,6 +392,9 @@ namespace AI_FileOrganizer.Services
                     modelName,
                     cancellationToken
                 );
+                // <<< UPDATE TOKEN COUNT >>>
+                _totalTokensUsed += _aiService.LastCallSimulatedTokensUsed;
+                TokensUsedUpdated?.Invoke(_totalTokensUsed);
 
                 if (RequestRenameFile == null)
                 {
@@ -498,13 +511,18 @@ namespace AI_FileOrganizer.Services
                     case "Azure OpenAI":
                         return new AzureOpenAiProvider(azureEndpoint, apiKey);
                     default:
-                        _logger.Log($"FOUT: Onbekende AI-provider geselecteerd: {providerName}. Kan actie niet uitvoeren.");
+                        _logger.Log($"FOUT: Onbekende AI-provider geselecteerd: '{providerName}'.");
                         return null;
                 }
             }
-            catch (ArgumentException ex) // Catch specific exceptions from provider constructors (e.g., invalid Azure endpoint)
+            catch (ArgumentException argEx)
             {
-                _logger.Log($"FOUT: Configuratieprobleem voor AI-provider '{providerName}': {ex.Message}. Kan actie niet uitvoeren.");
+                _logger.Log($"FOUT bij initialiseren AI Provider '{providerName}': {argEx.Message}");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.Log($"ALGEMENE FOUT bij initialiseren AI Provider '{providerName}': {ex.Message}");
                 return null;
             }
         }

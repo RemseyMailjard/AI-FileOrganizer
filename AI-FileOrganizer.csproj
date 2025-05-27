@@ -346,7 +346,7 @@
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
-    <Content Include="Installer\AI-applicatie.txt" />
+    <Content Include="Installer\Gitgest_SourceCode.txt" />
     <Content Include="Installer\AI-FileOrganizerSetup.exe" />
     <Content Include="Installer\AI-fileorganizer_screenshot.png" />
     <Content Include="Installer\AI-FolderInno.iss" />
@@ -354,7 +354,7 @@
     <Content Include="Installer\MIT License %28MIT-licentie%29.txt" />
     <Content Include="Installer\na-installatie-informatie.txt" />
     <Content Include="logo.ico" />
-    <Content Include="Media\AIFileOrganizer_CompleteWalkthrough.mp4" />
+    <Content Include="Media\AI-bestandsorganizer.mp4" />
     <Content Include="Media\AIFileOrganizer_Demo.gif" />
     <Content Include="Media\logo.ico" />
     <Content Include="Media\logo.png" />

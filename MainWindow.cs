@@ -560,5 +560,9 @@ namespace AI_FileOrganizer
             }
         }
 
+        private void lblSourceFolder_Click(object sender, EventArgs e)
+        {
+
+        }
     }
 }

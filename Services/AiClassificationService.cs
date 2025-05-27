@@ -1,4 +1,5 @@
-﻿using System;
+﻿// AI_FileOrganizer/Services/AiClassificationService.cs
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO; // Nodig voor Path.GetFileNameWithoutExtension
@@ -27,9 +28,14 @@ namespace AI_FileOrganizer.Services
         private const int FILENAME_MAX_TOKENS = 30;
         private const float FILENAME_TEMPERATURE = 0.3f; // Nog iets hoger voor creativiteit
 
+        // <<< NEW PROPERTY >>>
+        public long LastCallSimulatedTokensUsed { get; private set; }
+
+
         public AiClassificationService(ILogger logger)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            LastCallSimulatedTokensUsed = 0; // Initialize
         }
 
         /// <summary>
@@ -79,6 +85,8 @@ namespace AI_FileOrganizer.Services
             string modelName,
             CancellationToken cancellationToken)
         {
+            this.LastCallSimulatedTokensUsed = 0; // Reset for this call
+
             if (string.IsNullOrWhiteSpace(textToClassify) && string.IsNullOrWhiteSpace(originalFilename))
             {
                 _logger.Log("WAARSCHUWING: Geen tekst en geen bestandsnaam om te classificeren. Retourneer fallback categorie.");
@@ -176,6 +184,11 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
                     CATEGORY_TEMPERATURE,
                     cancellationToken
                 );
+                // <<< SIMULATE TOKEN USAGE >>>
+                if (chosenCategory != null)
+                {
+                    this.LastCallSimulatedTokensUsed = (prompt.Length / 4) + (chosenCategory.Length / 4); // Simple estimation
+                }
             }
             catch (OperationCanceledException)
             {
@@ -240,6 +253,8 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
             string modelName,
             CancellationToken cancellationToken)
         {
+            this.LastCallSimulatedTokensUsed = 0; // Reset for this call
+
             if (aiProvider == null)
             {
                 _logger.Log("FOUT: AI-provider is null voor submapnaam-suggestie.");
@@ -323,6 +338,11 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
                     SUBFOLDER_TEMPERATURE,
                     cancellationToken
                 );
+                // <<< SIMULATE TOKEN USAGE >>>
+                if (suggestedName != null)
+                {
+                    this.LastCallSimulatedTokensUsed = (prompt.Length / 4) + (suggestedName.Length / 4);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -353,6 +373,7 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
             if (needsRetry)
             {
                 _logger.Log($"INFO: Eerste AI-suggestie '{suggestedName?.Trim() ?? "[LEEG]"}' voor '{originalFilename}' was onbruikbaar (leeg/te kort/generiek). Start retry...");
+                long previousTokens = this.LastCallSimulatedTokensUsed; // Store tokens from first attempt
 
                 // Sterkere retry prompt om de AI te dwingen een bruikbare naam te geven.
                 var retryPrompt = prompt + "\n\nDe vorige suggestie was niet bruikbaar. Denk goed na en geef nu alsnog een CONCRETE, KORTE EN BESCHRIJVENDE mapnaam. De output moet DIRECT de naam zijn.";
@@ -365,6 +386,13 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
                         SUBFOLDER_TEMPERATURE,
                         cancellationToken
                     );
+
+                    // <<< SIMULATE TOKEN USAGE (RETRY) >>>
+                    if (suggestedName != null)
+                    {
+                        this.LastCallSimulatedTokensUsed = previousTokens + (retryPrompt.Length / 4) + (suggestedName.Length / 4);
+                    }
+
 
                     _logger.Log($"DEBUG: Ruwe AI-antwoord voor submapnaam (retry): '{suggestedName?.Replace("\n", "\\n")}'.");
                     // GECORRIGEERD: Opschoning na retry met Regex.Replace
@@ -410,6 +438,8 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
             string modelName,
             CancellationToken cancellationToken)
         {
+            this.LastCallSimulatedTokensUsed = 0; // Reset for this call
+
             if (aiProvider == null)
             {
                 _logger.Log("FOUT: AI-provider is null voor bestandsnaam-suggestie.");
@@ -461,6 +491,11 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
                     FILENAME_TEMPERATURE,
                     cancellationToken
                 );
+                // <<< SIMULATE TOKEN USAGE >>>
+                if (suggestedName != null)
+                {
+                    this.LastCallSimulatedTokensUsed = (prompt.Length / 4) + (suggestedName.Length / 4);
+                }
             }
             catch (OperationCanceledException)
             {
