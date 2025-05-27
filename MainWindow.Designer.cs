@@ -114,7 +114,8 @@
             this.cmbProviderSelection.Items.AddRange(new object[] {
             "Gemini (Google)",
             "OpenAI (openai.com)",
-            "Azure OpenAI"});
+            "Azure OpenAI",
+            "Lokaal ONNX-model"});
             this.cmbProviderSelection.Location = new System.Drawing.Point(173, 3);
             this.cmbProviderSelection.Name = "cmbProviderSelection";
             this.cmbProviderSelection.Size = new System.Drawing.Size(674, 24);

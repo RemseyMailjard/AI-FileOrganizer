@@ -29,6 +29,8 @@ namespace AI_FileOrganizer
         private readonly TextExtractionService _textExtractionService;
         private readonly CredentialStorageService _credentialStorageService;
 
+        public string SelectedOnnxModelPath { get; private set; }
+
         public MainWindow()
         {
             InitializeComponent();
@@ -91,19 +93,19 @@ namespace AI_FileOrganizer
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            // Init providerselectie en standaardwaarden UI
+            // Init providerselectie
             if (cmbProviderSelection.Items.Count == 0)
             {
-                cmbProviderSelection.Items.AddRange(new object[]
-                {
+                cmbProviderSelection.Items.AddRange(new object[] {
                     "Gemini (Google)",
                     "OpenAI (openai.com)",
-                    "Azure OpenAI"
-                });
+                    "Azure OpenAI",
+                    "Lokaal ONNX-model"
+                  });
             }
-            cmbProviderSelection.SelectedIndexChanged -= cmbProviderSelection_SelectedIndexChanged;
-            cmbProviderSelection.SelectedIndexChanged += cmbProviderSelection_SelectedIndexChanged;
-            cmbProviderSelection.SelectedIndex = 0; // Zet eerste provider (triggert ook modelkeuze)
+            cmbModelSelection.SelectedIndexChanged -= cmbModelSelection_SelectedIndexChanged;
+            cmbModelSelection.SelectedIndexChanged += cmbModelSelection_SelectedIndexChanged;
+            cmbProviderSelection.SelectedIndex = 0; // Triggert modelkeuze
 
             txtApiKey.Text = "YOUR_GOOGLE_API_KEY_HERE";
             SetupApiKeyPlaceholder(txtApiKey, "YOUR_GOOGLE_API_KEY_HERE");
@@ -142,6 +144,34 @@ namespace AI_FileOrganizer
         /// Laad de API-key (en evt. Azure endpoint) uit Credential Manager op basis van provider en
         /// zet deze altijd correct zichtbaar in het textfield. Als er geen key is, toon je een placeholder.
         /// </summary>
+        private void cmbModelSelection_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            string provider = cmbProviderSelection.SelectedItem?.ToString() ?? "";
+            string selectedModel = cmbModelSelection.SelectedItem?.ToString() ?? "";
+
+            // Alleen triggeren als provider ONNX is én user klikt op kies...
+            if (provider == "Lokaal ONNX-model" && selectedModel == "Kies lokaal ONNX-model...")
+            {
+                using (OpenFileDialog ofd = new OpenFileDialog())
+                {
+                    ofd.Filter = "ONNX-modellen (*.onnx)|*.onnx";
+                    ofd.Title = "Selecteer een ONNX-modelbestand";
+                    if (ofd.ShowDialog() == DialogResult.OK)
+                    {
+                        SelectedOnnxModelPath = ofd.FileName;
+                        cmbModelSelection.Items.Clear();
+                        cmbModelSelection.Items.Add(System.IO.Path.GetFileName(SelectedOnnxModelPath));
+                        cmbModelSelection.SelectedIndex = 0;
+                    }
+                    else
+                    {
+                        // User annuleert: dropdown leeg laten, of bijv. op -1 zetten
+                        cmbModelSelection.SelectedIndex = -1;
+                    }
+                }
+            }
+        }
+
         private void LoadApiKeyForSelectedProvider()
         {
             string selectedProviderName = cmbProviderSelection.SelectedItem?.ToString() ?? "";
@@ -202,16 +232,22 @@ namespace AI_FileOrganizer
         {
             cmbModelSelection.Items.Clear();
             string provider = cmbProviderSelection.SelectedItem?.ToString() ?? "";
+
             if (provider == "Gemini (Google)")
             {
-                cmbModelSelection.Items.AddRange(new object[] { "gemini-1.5-pro-latest", "gemini-1.5-flash-latest", "gemini-1.0-pro-latest", "gemini-pro", "gemini-2.5-pro-preview-05-06", "gemini-2.5-flash-preview-04-17", "gemini-2.0-flash-001", "gemini-2.0-flash-lite-001" });
+                cmbModelSelection.Items.AddRange(new object[] {
+            "gemini-2.0-flash-lite", "gemini-1.5-pro-latest", "gemini-1.5-flash-latest",
+            "gemini-1.0-pro-latest", "gemini-pro", "gemini-2.5-pro-preview-05-06",
+            "gemini-2.5-flash-preview-04-17", "gemini-2.0-flash-001", "gemini-2.0-flash-lite-001" });
                 lblApiKey.Text = "Google API Key:";
                 lblAzureEndpoint.Visible = false;
                 txtAzureEndpoint.Visible = false;
             }
             else if (provider == "OpenAI (openai.com)")
             {
-                cmbModelSelection.Items.AddRange(new object[] { "gpt-4o", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo", "gpt-3.5-turbo-0125", "gpt-3.5-turbo-0613" });
+                cmbModelSelection.Items.AddRange(new object[] {
+            "gpt-4o", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo",
+            "gpt-3.5-turbo-0125", "gpt-3.5-turbo-0613" });
                 lblApiKey.Text = "OpenAI API Key:";
                 lblAzureEndpoint.Visible = false;
                 txtAzureEndpoint.Visible = false;
@@ -223,9 +259,46 @@ namespace AI_FileOrganizer
                 lblAzureEndpoint.Visible = true;
                 txtAzureEndpoint.Visible = true;
             }
+            else if (provider == "Lokaal ONNX-model")
+            {
+                cmbModelSelection.Items.Add("Kies lokaal ONNX-model...");
+                lblApiKey.Text = "Geen API Key nodig";
+                lblAzureEndpoint.Visible = false;
+                txtAzureEndpoint.Visible = false;
+            }
+            if (provider == "Lokaal ONNX-model" && string.IsNullOrEmpty(SelectedOnnxModelPath))
+            {
+                MessageBox.Show("Selecteer eerst een ONNX-modelbestand.");
+                return;
+            }
+
             cmbModelSelection.SelectedIndex = 0;
             LoadApiKeyForSelectedProvider();
         }
+
+        private void cmbModelSelection_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            string provider = cmbProviderSelection.SelectedItem?.ToString() ?? "";
+            string selectedModel = cmbModelSelection.SelectedItem?.ToString() ?? "";
+
+            if (provider == "Lokaal ONNX-model" && selectedModel == "Kies lokaal ONNX-model...")
+            {
+                using (OpenFileDialog ofd = new OpenFileDialog())
+                {
+                    ofd.Filter = "ONNX-modellen (*.onnx)|*.onnx";
+                    ofd.Title = "Selecteer een ONNX-modelbestand";
+                    if (ofd.ShowDialog() == DialogResult.OK)
+                    {
+                        SelectedOnnxModelPath = ofd.FileName;
+                        cmbModelSelection.Items.Clear();
+                        cmbModelSelection.Items.Add(System.IO.Path.GetFileName(SelectedOnnxModelPath));
+                        cmbModelSelection.SelectedIndex = 0;
+                    }
+                }
+            }
+        }
+
+
 
         /// <summary>
         /// Plaatst placeholder text in een TextBox en regelt kleur.

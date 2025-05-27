@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using AI_FileOrganizer.Utils;
 using Azure;
 using Azure.AI.OpenAI;
 using Azure.AI.OpenAI.Chat;
