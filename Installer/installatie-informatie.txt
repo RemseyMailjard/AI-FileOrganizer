@@ -1,75 +1,106 @@
-AI File Organizer – Installatie Informatie
+# AI File Organizer – Installatie Informatie
 
-Welkom bij de installatie van AI File Organizer!
+Welkom bij de installatie van **AI File Organizer**!
 
-Deze applicatie helpt je automatisch je digitale documenten te ordenen en te hernoemen met behulp van kunstmatige intelligentie. Lees deze instructies aandachtig voor een soepele installatie en het juiste gebruik van AI-functies.
+Deze applicatie helpt je automatisch je digitale documenten te ordenen en te hernoemen met behulp van kunstmatige intelligentie. Lees deze instructies aandachtig voor een soepele installatie, verantwoord gebruik van de AI‑functies en een goed begrip van de eventuele kosten.
 
-------------------------------------------------------------
-Systeemvereisten
+---
 
-- Windows 10 of hoger
-- .NET Framework 4.8 (de installer controleert dit automatisch)
-- Internetverbinding (voor gebruik van AI-functies)
+## 🖥️  Systeemvereisten
 
-------------------------------------------------------------
-API-key verplicht voor AI
+* **Besturingssysteem:** Windows 10 of hoger
+* **.NET Framework:** 4.8 (de installer controleert dit automatisch)
+* **Internetverbinding:** verplicht voor gebruik van AI‑functionaliteit
 
-Om de AI-functies te gebruiken heb je een geldige API-sleutel nodig van een van de volgende providers:
-- Google Gemini
-- OpenAI
-- Azure OpenAI
+---
 
-Waarom een API-key?
-AI File Organizer gebruikt AI-diensten van externe aanbieders. Hiervoor is een persoonlijke API-key nodig om misbruik te voorkomen en jouw data veilig te houden. Je gebruikt je eigen account en behoudt volledige controle.
+## 🔑  API‑key verplicht voor AI
 
-------------------------------------------------------------
-Hoe verkrijg je een API-key?
+Om de AI‑functies te gebruiken heb je een **geldige API‑sleutel** nodig van een van de volgende providers:
 
-1. Google Gemini (aanbevolen)
-- Ga naar https://aistudio.google.com/
-- Log in met je Google-account.
-- Kies “API keys” en maak een nieuwe API-key aan.
-- Kopieer de sleutel en bewaar deze goed.
+* Google Gemini
+* OpenAI
+* Azure OpenAI
 
-2. OpenAI
-- Ga naar https://platform.openai.com/
-- Log in of maak een account aan.
-- Ga naar "API Keys" via je profiel en maak een nieuwe key.
-- Kopieer deze sleutel.
+**Waarom een API‑key?**
+AI File Organizer gebruikt AI‑diensten van externe aanbieders. Jouw persoonlijke API‑key is nodig om toegang te krijgen, misbruik te voorkomen en je eigen kosten/billing te registreren. Je blijft volledig eigenaar van je account en bepaalt zelf wanneer je de sleutel intrekt.
 
-3. Azure OpenAI
-- Log in bij https://portal.azure.com/
-- Maak een Azure OpenAI resource aan en vraag toegang aan.
-- Ga naar “Keys and Endpoint” en kopieer zowel de key als de endpoint-URL.
+---
 
-------------------------------------------------------------
-API-key instellen na installatie
+## 📝  Hoe verkrijg je een API‑key?
 
-1. Start AI File Organizer.
-2. Voer je API-key in bij het veld “API Key” en kies de juiste provider.
-3. Voor Azure OpenAI: vul ook het endpoint-veld in.
-4. Selecteer het gewenste AI-model.
+1. **Google Gemini (aanbevolen)**
+
+   1. Ga naar [https://aistudio.google.com/](https://aistudio.google.com/)
+   2. Log in met je Google‑account.
+   3. Kies **“API keys”** en maak een nieuwe key aan.
+   4. Kopieer de sleutel en bewaar deze veilig.
+2. **OpenAI**
+
+   1. Ga naar [https://platform.openai.com/](https://platform.openai.com/) en log in of maak een account aan.
+   2. Ga naar **“API Keys”** en maak een nieuwe key.
+   3. Kopieer de sleutel **direct**; deze wordt maar één keer getoond.
+3. **Azure OpenAI**
+
+   1. Log in bij [https://portal.azure.com/](https://portal.azure.com/).
+   2. Maak een *Azure OpenAI resource* aan en vraag toegang aan.
+   3. Ga naar **“Keys and Endpoint”** en kopieer zowel de key als de endpoint‑URL.
+
+---
+
+## ⚙️  API‑key instellen na installatie
+
+1. Start **AI File Organizer**.
+2. Voer je API‑key in bij het veld **“API Key”** en kies de juiste provider.
+3. Voor **Azure OpenAI**: vul ook het **Endpoint**‑veld in.
+4. Selecteer het gewenste AI‑model (bijv. *gpt‑4o*, *gemini‑1.5‑pro‑latest*).
 5. Je kunt nu direct beginnen met ordenen!
 
-------------------------------------------------------------
-Ondersteunde bestandssoorten
+---
 
-- PDF (.pdf)
-- Word-documenten (.docx)
-- Tekstbestanden (.txt, .md)
+## 📄  Ondersteunde bestandssoorten
 
-------------------------------------------------------------
-Privacy
+* PDF (.pdf)
+* Word‑documenten (.docx)
+* Tekstbestanden (.txt, .md)
 
-- Je API-sleutel wordt alleen lokaal opgeslagen.
-- Alleen tekstfragmenten uit je bestanden worden kort naar de AI-provider gestuurd, uitsluitend voor classificatie en naamgeving.
-- Er wordt geen data met derden gedeeld.
+---
 
-------------------------------------------------------------
-Vragen of hulp?
+## 🔒  Privacy & Data‑verwerking
 
-Website: https://remsey.nl
-LinkedIn: https://linkedin.com/in/remseymailjard
+* **Lokaal eerst –** De applicatie leest je bestanden **lokaal** en stuurt alleen korte tekstfragmenten (samenvattingen/uitreksels) naar de gekozen AI‑provider.
+* **Geen permanente opslag –** AI File Organizer bewaart geen kopieën van je bestanden op externe servers. Verzonden prompts worden uitsluitend gebruikt om classificaties of bestandsnamen te genereren en worden niet opnieuw opgeslagen door deze applicatie.
+* **Versleutelde overdracht –** Communicatie met de AI‑provider verloopt via HTTPS/TLS.
+* **Modeltraining –** OpenAI en andere providers **kunnen** prompts/logs gebruiken voor modelverbetering, tenzij je dat in hun dashboard uitschakelt. Controleer de beleidsinstellingen van je provider.
+* **Vertrouwelijke documenten –** Stuur geen staatsgeheimen, medische dossiers of gegevens die onder strikte regelgeving (AVG, HIPAA, …) vallen zonder voorafgaande juridische beoordeling.
+
+---
+
+## 💰  Kosten & Facturatie
+
+* AI‑providers hanteren een **pay‑as‑you‑go**‑tarief per token/verzoek.
+  Voorbeeld (mei 2025, excl. btw):
+
+  * OpenAI *gpt‑4o* \~ \$5 per miljoen input‑tokens + \$15 per miljoen output‑tokens.
+  * Google Gemini *1.5‑Flash* \~ \$0.35 per 1k input‑tokens + \$0.53 per 1k output‑tokens.
+  * Azure OpenAI tarieven variëren per regio en model.
+* Het gebruik van AI File Organizer kan dus leiden tot **extra kosten op jouw account**.
+* De applicatie toont het geschatte **tokens‑verbruik** in de interface, maar raadpleeg altijd je provider‑dashboard voor de uiteindelijke factuur.
+
+---
+
+## ⚠️  AI‑modellen — beperkingen & disclaimer
+
+* Large‑Language‑Models kunnen hallucineren of fouten maken. Controleer altijd de voorgestelde categorisatie of bestandsnaam voordat je ze accepteert.
+* De ontwikkelaar geeft **geen garanties** over nauwkeurigheid, volledigheid of geschiktheid van de output.
+* Gebruik op eigen risico. De ontwikkelaar is niet aansprakelijk voor directe of indirecte schade of kosten als gevolg van foutieve AI‑output of onjuist gebruik van de software.
+
+---
+
+## ❓  Vragen of hulp?
+
+Website  : [https://remsey.nl](https://remsey.nl)
+LinkedIn : [https://linkedin.com/in/remseymailjard](https://linkedin.com/in/remseymailjard)
 
 Veel succes met digitaal organiseren!
-Team AI File Organizer
+*Team AI File Organizer*
