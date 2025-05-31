@@ -2,40 +2,41 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net.Http; 
+using System.Net.Http;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using Microsoft.WindowsAPICodePack.Dialogs; 
+using Microsoft.WindowsAPICodePack.Dialogs;
 
 using AI_FileOrganizer.Services;
 using AI_FileOrganizer.Utils;
-using AI_FileOrganizer.Models; 
+using AI_FileOrganizer.Models;
 using ILogger = AI_FileOrganizer.Utils.ILogger;
+using DocumentFormat.OpenXml.Spreadsheet;
+using AI_FileOrganizer.Properties;
 
 namespace AI_FileOrganizer
 {
     public partial class MainWindow : Form
     {
-        private readonly ILogger _logger; // Logt naar UI
-        private static readonly HttpClient _httpClient = new HttpClient(); // Hergebruik voor API-calls
-        private long _totalTokensUsed = 0; // Voor tonen in UI
+        private readonly ILogger _logger;
+        private static readonly HttpClient _httpClient = new HttpClient();
+        private long _totalTokensUsed = 0;
         private CancellationTokenSource _cancellationTokenSource;
 
-        // Services voor hoofdlogica
         private readonly FileOrganizerService _fileOrganizerService;
         private readonly AiClassificationService _aiService;
         private readonly TextExtractionService _textExtractionService;
         private readonly CredentialStorageService _credentialStorageService;
 
         public string SelectedOnnxModelPath { get; private set; }
+        public string SelectedOnnxVocabPath { get; private set; } // Optioneel: indien vocab.txt vereist
 
         public MainWindow()
         {
             InitializeComponent();
 
-            // Init logging en onderliggende services
             _logger = new UiLogger(rtbLog);
             _aiService = new AiClassificationService(_logger);
             _credentialStorageService = new CredentialStorageService(_logger);
@@ -57,7 +58,6 @@ namespace AI_FileOrganizer
                 _httpClient
             );
 
-            // UI-progress en events koppelen aan de service
             _fileOrganizerService.ProgressChanged += (current, total) =>
             {
                 if (progressBar1.InvokeRequired)
@@ -74,10 +74,8 @@ namespace AI_FileOrganizer
                 UpdateTokensUsedLabel();
             };
 
-            // Callback voor interactieve rename
             _fileOrganizerService.RequestRenameFile += (originalName, suggestedName) =>
             {
-                // UI-aanroep op main thread
                 return Invoke((Func<Task<(DialogResult, string, bool)>>)(() =>
                 {
                     using (var renameForm = new FormRenameFile(originalName, suggestedName))
@@ -89,11 +87,12 @@ namespace AI_FileOrganizer
             };
 
             _cancellationTokenSource = new CancellationTokenSource();
+         //   TestOnnxRobBERTProvider();
+
         }
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            // Init providerselectie
             if (cmbProviderSelection.Items.Count == 0)
             {
                 cmbProviderSelection.Items.AddRange(new object[] {
@@ -101,11 +100,15 @@ namespace AI_FileOrganizer
                     "OpenAI (openai.com)",
                     "Azure OpenAI",
                     "Lokaal ONNX-model"
-                  });
+                });
             }
+            cmbProviderSelection.SelectedIndexChanged -= cmbProviderSelection_SelectedIndexChanged;
+            cmbProviderSelection.SelectedIndexChanged += cmbProviderSelection_SelectedIndexChanged;
+
             cmbModelSelection.SelectedIndexChanged -= cmbModelSelection_SelectedIndexChanged;
             cmbModelSelection.SelectedIndexChanged += cmbModelSelection_SelectedIndexChanged;
-            cmbProviderSelection.SelectedIndex = 0; // Triggert modelkeuze
+
+            cmbProviderSelection.SelectedIndex = 0;
 
             txtApiKey.Text = "YOUR_GOOGLE_API_KEY_HERE";
             SetupApiKeyPlaceholder(txtApiKey, "YOUR_GOOGLE_API_KEY_HERE");
@@ -127,49 +130,10 @@ namespace AI_FileOrganizer
             lblAzureEndpoint.Visible = false;
             txtAzureEndpoint.Visible = false;
 
+            SelectedOnnxModelPath = null;
+            SelectedOnnxVocabPath = null;
+
             LoadApiKeyForSelectedProvider();
-            // Toon tip voor mappenstructuur
-         //   MessageBox.Show(
-       //         "🔔 Tip: Klik allereerst op ‘Standaardfolderstructuur’ (rechts in het midden) om een mappenstructuur aan te maken. Dit werkt zelfs zonder API key",
-         //       "Eerste stap: mappenstructuur maken",
-          //      MessageBoxButtons.OK,
-         //       MessageBoxIcon.Information
-         //   );
-        }
-
-        /// <summary>
-        /// Laad API-key (en evt. Azure endpoint) uit Credential Manager op basis van provider.
-        /// </summary>
-        /// <summary>
-        /// Laad de API-key (en evt. Azure endpoint) uit Credential Manager op basis van provider en
-        /// zet deze altijd correct zichtbaar in het textfield. Als er geen key is, toon je een placeholder.
-        /// </summary>
-        private void cmbModelSelection_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            string provider = cmbProviderSelection.SelectedItem?.ToString() ?? "";
-            string selectedModel = cmbModelSelection.SelectedItem?.ToString() ?? "";
-
-            // Alleen triggeren als provider ONNX is én user klikt op kies...
-            if (provider == "Lokaal ONNX-model" && selectedModel == "Kies lokaal ONNX-model...")
-            {
-                using (OpenFileDialog ofd = new OpenFileDialog())
-                {
-                    ofd.Filter = "ONNX-modellen (*.onnx)|*.onnx";
-                    ofd.Title = "Selecteer een ONNX-modelbestand";
-                    if (ofd.ShowDialog() == DialogResult.OK)
-                    {
-                        SelectedOnnxModelPath = ofd.FileName;
-                        cmbModelSelection.Items.Clear();
-                        cmbModelSelection.Items.Add(System.IO.Path.GetFileName(SelectedOnnxModelPath));
-                        cmbModelSelection.SelectedIndex = 0;
-                    }
-                    else
-                    {
-                        // User annuleert: dropdown leeg laten, of bijv. op -1 zetten
-                        cmbModelSelection.SelectedIndex = -1;
-                    }
-                }
-            }
         }
 
         private void LoadApiKeyForSelectedProvider()
@@ -177,25 +141,37 @@ namespace AI_FileOrganizer
             string selectedProviderName = cmbProviderSelection.SelectedItem?.ToString() ?? "";
             (string loadedApiKey, string loadedAzureEndpoint) = _credentialStorageService.GetApiKey(selectedProviderName);
 
-            // --- API KEY TEXTBOX ---
+            if (selectedProviderName == "Lokaal ONNX-model")
+            {
+                txtApiKey.Text = "";
+                txtApiKey.Enabled = false;
+                txtApiKey.ForeColor = System.Drawing.Color.Gray;
+                txtApiKey.Tag = null;
+
+                txtAzureEndpoint.Text = "";
+                txtAzureEndpoint.Enabled = false;
+                txtAzureEndpoint.ForeColor = System.Drawing.Color.Gray;
+                txtAzureEndpoint.Tag = null;
+                return;
+            }
+
+            txtApiKey.Enabled = true;
             if (!string.IsNullOrWhiteSpace(loadedApiKey))
             {
-                // Toon de gevonden key als zwarte tekst
                 txtApiKey.Text = loadedApiKey;
                 txtApiKey.ForeColor = System.Drawing.Color.Black;
-                txtApiKey.Tag = GetDefaultApiKeyPlaceholder(selectedProviderName); // Zorg dat de Tag klopt voor placeholder logic
+                txtApiKey.Tag = GetDefaultApiKeyPlaceholder(selectedProviderName);
             }
             else
             {
-                // Geen opgeslagen key? Toon placeholder in grijs
                 txtApiKey.Text = GetDefaultApiKeyPlaceholder(selectedProviderName);
                 txtApiKey.ForeColor = System.Drawing.Color.Gray;
                 txtApiKey.Tag = GetDefaultApiKeyPlaceholder(selectedProviderName);
             }
 
-            // --- AZURE ENDPOINT TEXTBOX (alleen voor Azure OpenAI) ---
             if (selectedProviderName == "Azure OpenAI")
             {
+                txtAzureEndpoint.Enabled = true;
                 if (!string.IsNullOrWhiteSpace(loadedAzureEndpoint))
                 {
                     txtAzureEndpoint.Text = loadedAzureEndpoint;
@@ -211,9 +187,10 @@ namespace AI_FileOrganizer
             }
             else
             {
-                txtAzureEndpoint.Text = "YOUR_AZURE_ENDPOINT_HERE";
+                txtAzureEndpoint.Text = "";
                 txtAzureEndpoint.ForeColor = System.Drawing.Color.Gray;
-                txtAzureEndpoint.Tag = "YOUR_AZURE_ENDPOINT_HERE";
+                txtAzureEndpoint.Tag = null;
+                txtAzureEndpoint.Enabled = false;
             }
         }
 
@@ -225,20 +202,21 @@ namespace AI_FileOrganizer
             return "YOUR_API_KEY_HERE";
         }
 
-        /// <summary>
-        /// Update modellenlijst en API-key veld bij wisselen van provider.
-        /// </summary>
         private void cmbProviderSelection_SelectedIndexChanged(object sender, EventArgs e)
         {
             cmbModelSelection.Items.Clear();
             string provider = cmbProviderSelection.SelectedItem?.ToString() ?? "";
 
+            // Reset ONNX-vocab/model-paths bij provider-wissel!
+            SelectedOnnxModelPath = null;
+            SelectedOnnxVocabPath = null;
+
             if (provider == "Gemini (Google)")
             {
                 cmbModelSelection.Items.AddRange(new object[] {
-            "gemini-2.0-flash-lite", "gemini-1.5-pro-latest", "gemini-1.5-flash-latest",
-            "gemini-1.0-pro-latest", "gemini-pro", "gemini-2.5-pro-preview-05-06",
-            "gemini-2.5-flash-preview-04-17", "gemini-2.0-flash-001", "gemini-2.0-flash-lite-001" });
+                    "gemini-2.0-flash-lite", "gemini-1.5-pro-latest", "gemini-1.5-flash-latest",
+                    "gemini-1.0-pro-latest", "gemini-pro", "gemini-2.5-pro-preview-05-06",
+                    "gemini-2.5-flash-preview-04-17", "gemini-2.0-flash-001", "gemini-2.0-flash-lite-001" });
                 lblApiKey.Text = "Google API Key:";
                 lblAzureEndpoint.Visible = false;
                 txtAzureEndpoint.Visible = false;
@@ -246,8 +224,8 @@ namespace AI_FileOrganizer
             else if (provider == "OpenAI (openai.com)")
             {
                 cmbModelSelection.Items.AddRange(new object[] {
-            "gpt-4o", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo",
-            "gpt-3.5-turbo-0125", "gpt-3.5-turbo-0613" });
+                    "gpt-4o", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo",
+                    "gpt-3.5-turbo-0125", "gpt-3.5-turbo-0613" });
                 lblApiKey.Text = "OpenAI API Key:";
                 lblAzureEndpoint.Visible = false;
                 txtAzureEndpoint.Visible = false;
@@ -265,11 +243,6 @@ namespace AI_FileOrganizer
                 lblApiKey.Text = "Geen API Key nodig";
                 lblAzureEndpoint.Visible = false;
                 txtAzureEndpoint.Visible = false;
-            }
-            if (provider == "Lokaal ONNX-model" && string.IsNullOrEmpty(SelectedOnnxModelPath))
-            {
-                MessageBox.Show("Selecteer eerst een ONNX-modelbestand.");
-                return;
             }
 
             cmbModelSelection.SelectedIndex = 0;
@@ -293,16 +266,38 @@ namespace AI_FileOrganizer
                         cmbModelSelection.Items.Clear();
                         cmbModelSelection.Items.Add(System.IO.Path.GetFileName(SelectedOnnxModelPath));
                         cmbModelSelection.SelectedIndex = 0;
+                        // Vraag gebruiker om vocab
+                        if (MessageBox.Show("Heeft dit ONNX-model een vocab.txt nodig?", "Vocab selecteren", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                        {
+                            using (OpenFileDialog vocabDialog = new OpenFileDialog())
+                            {
+                                vocabDialog.Filter = "Vocab (*.txt)|*.txt|Alle bestanden (*.*)|*.*";
+                                vocabDialog.Title = "Selecteer vocab.txt";
+                                if (vocabDialog.ShowDialog() == DialogResult.OK)
+                                {
+                                    SelectedOnnxVocabPath = vocabDialog.FileName;
+                                }
+                                else
+                                {
+                                    SelectedOnnxVocabPath = null;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            SelectedOnnxVocabPath = null;
+                        }
+                    }
+                    else
+                    {
+                        SelectedOnnxModelPath = null;
+                        SelectedOnnxVocabPath = null;
+                        cmbModelSelection.SelectedIndex = -1;
                     }
                 }
             }
         }
 
-
-
-        /// <summary>
-        /// Plaatst placeholder text in een TextBox en regelt kleur.
-        /// </summary>
         private void SetupApiKeyPlaceholder(TextBox textBox, string placeholderText)
         {
             textBox.GotFocus -= RemoveApiKeyPlaceholderInternal;
@@ -345,9 +340,6 @@ namespace AI_FileOrganizer
             }
         }
 
-        /// <summary>
-        /// Moderne folderdialog voor bronmap selectie.
-        /// </summary>
         private void btnSelectSourceFolder_Click(object sender, EventArgs e)
         {
             using (var dialog = new CommonOpenFileDialog())
@@ -363,9 +355,6 @@ namespace AI_FileOrganizer
             }
         }
 
-        /// <summary>
-        /// Moderne folderdialog voor doelmap selectie.
-        /// </summary>
         private void btnSelectDestinationFolder_Click(object sender, EventArgs e)
         {
             using (var dialog = new CommonOpenFileDialog())
@@ -382,9 +371,6 @@ namespace AI_FileOrganizer
             }
         }
 
-        /// <summary>
-        /// Start bestandsorganisatieproces.
-        /// </summary>
         private async void btnStartOrganization_Click(object sender, EventArgs e)
         {
             rtbLog.Clear();
@@ -393,17 +379,24 @@ namespace AI_FileOrganizer
             btnSaveLog.Enabled = false;
             progressBar1.Visible = true;
 
-            string apiKey = txtApiKey.Text;
-            string currentApiKeyPlaceholder = txtApiKey.Tag?.ToString();
-            if (string.IsNullOrWhiteSpace(apiKey) || apiKey == currentApiKeyPlaceholder)
-            {
-                _logger.Log("FOUT: Gelieve een geldige API Key in te vullen.");
-                SetUiEnabled(true); btnStopOrganization.Enabled = false; progressBar1.Visible = false; return;
-            }
-
             string providerName = cmbProviderSelection.SelectedItem?.ToString() ?? "";
+            string selectedModel = cmbModelSelection.SelectedItem?.ToString() ?? "";
+            string apiKey = txtApiKey.Text;
             string azureEndpoint = txtAzureEndpoint.Text;
-            string selectedModel = cmbModelSelection.SelectedItem?.ToString() ?? "gemini-1.5-pro-latest";
+
+            // Zet ONNX-paths vóór elke organisatie-actie
+            _fileOrganizerService.SelectedOnnxModelPath = SelectedOnnxModelPath;
+            _fileOrganizerService.SelectedOnnxVocabPath = SelectedOnnxVocabPath;
+
+            if (providerName != "Lokaal ONNX-model")
+            {
+                string currentApiKeyPlaceholder = txtApiKey.Tag?.ToString();
+                if (string.IsNullOrWhiteSpace(apiKey) || apiKey == currentApiKeyPlaceholder)
+                {
+                    _logger.Log("FOUT: Gelieve een geldige API Key in te vullen.");
+                    SetUiEnabled(true); btnStopOrganization.Enabled = false; progressBar1.Visible = false; return;
+                }
+            }
 
             if (!Directory.Exists(txtSourceFolder.Text))
             {
@@ -456,9 +449,6 @@ namespace AI_FileOrganizer
             }
         }
 
-        /// <summary>
-        /// Annuleert huidig organisatieproces.
-        /// </summary>
         private void btnStopOrganization_Click(object sender, EventArgs e)
         {
             _cancellationTokenSource?.Cancel();
@@ -466,11 +456,10 @@ namespace AI_FileOrganizer
             btnStopOrganization.Enabled = false;
         }
 
-        /// <summary>
-        /// Sla logbestand op via moderne dialoog.
-        /// </summary>
         private void btnSaveLog_Click(object sender, EventArgs e)
         {
+
+         //   MessageBox.Show("sa", "ShareX", MessageBoxButtons.OK, MessageBoxIcon.Information);
             using (var dialog = new CommonSaveFileDialog())
             {
                 dialog.Filters.Add(new CommonFileDialogFilter("Tekstbestanden", "*.txt"));
@@ -495,28 +484,22 @@ namespace AI_FileOrganizer
             }
         }
 
-        /// <summary>
-        /// Schakelt UI-elementen in/uit.
-        /// </summary>
         private void SetUiEnabled(bool enabled)
         {
-            txtApiKey.Enabled = enabled;
+            txtApiKey.Enabled = enabled && cmbProviderSelection.SelectedItem?.ToString() != "Lokaal ONNX-model";
             txtSourceFolder.Enabled = enabled;
             btnSelectSourceFolder.Enabled = enabled;
             txtDestinationFolder.Enabled = enabled;
             btnSelectDestinationFolder.Enabled = enabled;
             cmbModelSelection.Enabled = enabled;
             cmbProviderSelection.Enabled = enabled;
-            txtAzureEndpoint.Enabled = enabled;
+            txtAzureEndpoint.Enabled = enabled && cmbProviderSelection.SelectedItem?.ToString() == "Azure OpenAI";
             btnStartOrganization.Enabled = enabled;
             btnRenameSingleFile.Enabled = enabled;
             linkLabelAuthor.Enabled = enabled;
             chkRenameFiles.Enabled = enabled;
         }
 
-        /// <summary>
-        /// Update token label (UI-thread safe).
-        /// </summary>
         private void UpdateTokensUsedLabel()
         {
             if (InvokeRequired)
@@ -527,9 +510,6 @@ namespace AI_FileOrganizer
             lblTokensUsed.Text = $"Tokens gebruikt: {_totalTokensUsed}";
         }
 
-        /// <summary>
-        /// Open LinkedIn van auteur.
-        /// </summary>
         private void linkLabelAuthor_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
             try
@@ -547,9 +527,6 @@ namespace AI_FileOrganizer
             }
         }
 
-        /// <summary>
-        /// Hernaam één bestand via AI met moderne file-dialog.
-        /// </summary>
         private async void btnRenameSingleFile_Click(object sender, EventArgs e)
         {
             rtbLog.Clear();
@@ -559,15 +536,22 @@ namespace AI_FileOrganizer
             progressBar1.Visible = false;
 
             string apiKey = txtApiKey.Text;
-            if (string.IsNullOrWhiteSpace(apiKey) || (txtApiKey.Tag != null && apiKey == txtApiKey.Tag.ToString()))
-            {
-                _logger.Log("FOUT: Gelieve een geldige API Key in te vullen.");
-                SetUiEnabled(true); return;
-            }
-
-            string selectedModel = cmbModelSelection.SelectedItem?.ToString() ?? "gemini-1.5-pro-latest";
             string providerName = cmbProviderSelection.SelectedItem?.ToString() ?? "Gemini (Google)";
+            string selectedModel = cmbModelSelection.SelectedItem?.ToString() ?? "gemini-1.5-pro-latest";
             string azureEndpoint = txtAzureEndpoint?.Text;
+
+            // Zet ONNX-paths voor een enkele bestandsactie
+            _fileOrganizerService.SelectedOnnxModelPath = SelectedOnnxModelPath;
+            _fileOrganizerService.SelectedOnnxVocabPath = SelectedOnnxVocabPath;
+
+            if (providerName != "Lokaal ONNX-model")
+            {
+                if (string.IsNullOrWhiteSpace(apiKey) || (txtApiKey.Tag != null && apiKey == txtApiKey.Tag.ToString()))
+                {
+                    _logger.Log("FOUT: Gelieve een geldige API Key in te vullen.");
+                    SetUiEnabled(true); return;
+                }
+            }
 
             _cancellationTokenSource?.Dispose();
             _cancellationTokenSource = new CancellationTokenSource();
@@ -635,7 +619,6 @@ namespace AI_FileOrganizer
 
         private void lblSourceFolder_Click(object sender, EventArgs e)
         {
-
         }
     }
 }

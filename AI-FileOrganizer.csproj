@@ -98,11 +98,17 @@
     <Reference Include="GenerativeAI, Version=2.5.10.0, Culture=neutral, PublicKeyToken=125a6b2231c8ea71, processorArchitecture=MSIL">
       <HintPath>packages\Google_GenerativeAI.2.5.10\lib\net462\GenerativeAI.dll</HintPath>
     </Reference>
+    <Reference Include="Google.Protobuf, Version=3.27.1.0, Culture=neutral, PublicKeyToken=a7d26565bac4d604, processorArchitecture=MSIL">
+      <HintPath>packages\Google.Protobuf.3.27.1\lib\net45\Google.Protobuf.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.Bcl.AsyncInterfaces, Version=9.0.0.3, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>packages\Microsoft.Bcl.AsyncInterfaces.9.0.3\lib\net462\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Bcl.HashCode, Version=6.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>packages\Microsoft.Bcl.HashCode.6.0.0\lib\net462\Microsoft.Bcl.HashCode.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Bcl.Memory, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>packages\Microsoft.Bcl.Memory.9.0.0\lib\net462\Microsoft.Bcl.Memory.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Extensions.DependencyInjection, Version=9.0.0.3, Culture=neutral, PublicKeyToken=adb9793829ddae60, processorArchitecture=MSIL">
       <HintPath>packages\Microsoft.Extensions.DependencyInjection.9.0.3\lib\net462\Microsoft.Extensions.DependencyInjection.dll</HintPath>
@@ -125,6 +131,9 @@
     <Reference Include="Microsoft.ML.OnnxRuntime, Version=1.22.0.0, Culture=neutral, PublicKeyToken=f27f157f0a5b7bb6, processorArchitecture=MSIL">
       <HintPath>packages\Microsoft.ML.OnnxRuntime.Managed.1.22.0\lib\netstandard2.0\Microsoft.ML.OnnxRuntime.dll</HintPath>
     </Reference>
+    <Reference Include="Microsoft.ML.Tokenizers, Version=1.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>packages\Microsoft.ML.Tokenizers.1.0.2\lib\netstandard2.0\Microsoft.ML.Tokenizers.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.WindowsAPICodePack, Version=1.1.5.0, Culture=neutral, PublicKeyToken=8985beaab7ea3f04, processorArchitecture=MSIL">
       <HintPath>packages\Microsoft-WindowsAPICodePack-Core.1.1.5\lib\net48\Microsoft.WindowsAPICodePack.dll</HintPath>
     </Reference>
@@ -145,6 +154,9 @@
     </Reference>
     <Reference Include="System.ClientModel, Version=1.2.1.0, Culture=neutral, PublicKeyToken=92742159e12e44c8, processorArchitecture=MSIL">
       <HintPath>packages\System.ClientModel.1.2.1\lib\netstandard2.0\System.ClientModel.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Collections.Immutable, Version=9.0.0.5, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>packages\System.Collections.Immutable.9.0.5\lib\net462\System.Collections.Immutable.dll</HintPath>
     </Reference>
     <Reference Include="System.ComponentModel.Annotations, Version=4.2.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>packages\System.ComponentModel.Annotations.5.0.0\lib\net461\System.ComponentModel.Annotations.dll</HintPath>
@@ -283,6 +295,8 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Services\AiClassificationService.cs" />
     <Compile Include="Services\AzureOpenAiProvider.cs" />
+    <Compile Include="Services\Class1.cs" />
+    <Compile Include="Services\Class2.csPhi3OnnxProvider.cs" />
     <Compile Include="Services\CredentialStorageService.cs" />
     <Compile Include="Services\DocxTextExtractor.cs" />
     <Compile Include="Services\FileOrganizerService.cs" />

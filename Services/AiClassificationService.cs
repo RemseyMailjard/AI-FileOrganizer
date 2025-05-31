@@ -1,104 +1,87 @@
-﻿// AI_FileOrganizer/Services/AiClassificationService.cs
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.IO; // Nodig voor Path.GetFileNameWithoutExtension
+using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions; // NIEUW: Nodig voor Regex.Replace
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-
-using AI_FileOrganizer.Utils; // Nodig voor FileUtils en ILogger
+using AI_FileOrganizer.Utils;
 
 namespace AI_FileOrganizer.Services
 {
     public class AiClassificationService
     {
         private readonly ILogger _logger;
-
         private const string DEFAULT_FALLBACK_CATEGORY = "Overig";
-
-        // Nieuwe constanten voor de AI-parameters, per taak
-        private const int CATEGORY_MAX_TOKENS = 50;
-        private const float CATEGORY_TEMPERATURE = 0.0f; // Lager voor precieze classificatie
-
-        private const int SUBFOLDER_MAX_TOKENS = 20;
-        private const float SUBFOLDER_TEMPERATURE = 0.2f; // Iets hoger voor creativiteit, maar nog steeds gericht
-
-        private const int FILENAME_MAX_TOKENS = 30;
-        private const float FILENAME_TEMPERATURE = 0.3f; // Nog iets hoger voor creativiteit
-
-        // <<< NEW PROPERTY >>>
         public long LastCallSimulatedTokensUsed { get; private set; }
 
+        // AI-parameters
+        private const int CATEGORY_MAX_TOKENS = 50;
+        private const float CATEGORY_TEMPERATURE = 0.0f;
+        private const int SUBFOLDER_MAX_TOKENS = 20;
+        private const float SUBFOLDER_TEMPERATURE = 0.2f;
+        private const int FILENAME_MAX_TOKENS = 30;
+        private const float FILENAME_TEMPERATURE = 0.3f;
 
         public AiClassificationService(ILogger logger)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            LastCallSimulatedTokensUsed = 0; // Initialize
+            LastCallSimulatedTokensUsed = 0;
         }
 
         /// <summary>
-        /// Helpt bij het voorbereiden van tekst voor de AI door te controleren op zinvolle inhoud.
-        /// Geeft een fallback-tekst terug met instructies als de originele tekst niet zinvol is.
+        /// Classificeert een document naar categorie. Werkt met prompt-based (GPT, OpenAI, Gemini) en ONNX/RobBERT (cosine similarity).
         /// </summary>
-        /// <param name="extractedText">De reeds geëxtraheerde tekst uit het document.</param>
-        /// <param name="originalFilename">De originele bestandsnaam, gebruikt voor fallback context.</param>
-        /// <param name="maxLength">Maximale lengte van de tekst die naar de AI wordt gestuurd.</param>
-        /// <param name="wasTextMeaningful">Output parameter die aangeeft of de originele tekst zinvol was.</param>
-        /// <returns>De tekst die naar de AI moet worden gestuurd.</returns>
-        private string GetRelevantTextForAI(string extractedText, string originalFilename, int maxLength, out bool wasTextMeaningful)
-        {
-            // Controleer of de geëxtraheerde tekst zinvolle karakters bevat na trimmen
-            if (string.IsNullOrWhiteSpace(extractedText?.Trim()))
-            {
-                wasTextMeaningful = false;
-                // Geef de AI een expliciete instructie dat er geen tekstinhoud is en dat de focus op de bestandsnaam moet liggen.
-                return $"Dit document heeft de bestandsnaam '{Path.GetFileNameWithoutExtension(originalFilename)}'. Er kon geen inhoud uit het document worden geëxtraheerd, of de inhoud was leeg. Analyseer alleen de bestandsnaam en probeer daaruit de essentie te halen.";
-            }
-            else
-            {
-                wasTextMeaningful = true;
-                // Retourneer een afgekorte versie van de geëxtraheerde tekst
-                return extractedText.Substring(0, Math.Min(extractedText.Length, maxLength));
-            }
-        }
-
-
-        // ======= Publieke AI-methodes =======
-
-        /// <summary>
-        /// Classificeert de categorie van een document op basis van de tekstinhoud of bestandsnaam.
-        /// </summary>
-        /// <param name="textToClassify">De geëxtraheerde tekstinhoud van het document.</param>
-        /// <param name="originalFilename">De originele bestandsnaam van het document. BELANGRIJK: Deze parameter is NIEUW.</param>
-        /// <param name="categories">Lijst van mogelijke categorieën.</param>
-        /// <param name="aiProvider">De AI-provider om de classificatie uit te voeren.</param>
-        /// <param name="modelName">De naam van het AI-model.</param>
-        /// <param name="cancellationToken">Token om de operatie te annuleren.</param>
-        /// <returns>De geclassificeerde categorienaam.</returns>
         public async Task<string> ClassifyCategoryAsync(
             string textToClassify,
-            string originalFilename, // NIEUW: originalFilename is nu een parameter
+            string originalFilename,
             List<string> categories,
             IAiProvider aiProvider,
             string modelName,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            Dictionary<string, float[]> categoryEmbeddings = null // Alleen voor ONNX RobBERT
+        )
         {
-            this.LastCallSimulatedTokensUsed = 0; // Reset for this call
+            this.LastCallSimulatedTokensUsed = 0; // Reset
 
+            // Embedding-based classificatie (RobBERT ONNX of vergelijkbaar)
+            if (aiProvider is OnnxRobBERTProvider robbertProvider && categoryEmbeddings != null)
+            {
+                _logger.Log("INFO: Embedding-gebaseerde classificatie (RobBERT/ONNX) wordt gebruikt.");
+                string embeddingStr = await robbertProvider.GetTextCompletionAsync(
+                    textToClassify, modelName, 0, 0, cancellationToken);
+                float[] docEmbedding = embeddingStr.Split(',').Select(s => float.Parse(s, CultureInfo.InvariantCulture)).ToArray();
+
+                // Zoek de beste categorie via cosine similarity
+                string bestCategory = null;
+                double bestSim = double.MinValue;
+                foreach (var cat in categories)
+                {
+                    if (!categoryEmbeddings.ContainsKey(cat)) continue;
+                    double sim = CosineSimilarity(docEmbedding, categoryEmbeddings[cat]);
+                    if (sim > bestSim)
+                    {
+                        bestSim = sim;
+                        bestCategory = cat;
+                    }
+                }
+                _logger.Log($"INFO: RobBERT cosine similarity: '{bestCategory}' (sim score: {bestSim:0.###})");
+                return bestCategory ?? DEFAULT_FALLBACK_CATEGORY;
+            }
+
+            // Prompt-based AI
+            _logger.Log("INFO: Prompt-based classificatie (GPT/Gemini/OpenAI) wordt gebruikt.");
             if (string.IsNullOrWhiteSpace(textToClassify) && string.IsNullOrWhiteSpace(originalFilename))
             {
                 _logger.Log("WAARSCHUWING: Geen tekst en geen bestandsnaam om te classificeren. Retourneer fallback categorie.");
                 return DEFAULT_FALLBACK_CATEGORY;
             }
-
             if (aiProvider == null)
             {
                 _logger.Log("FOUT: AI-provider is null voor categorieclassificatie.");
                 return DEFAULT_FALLBACK_CATEGORY;
             }
-
             if (string.IsNullOrWhiteSpace(modelName))
             {
                 _logger.Log("FOUT: Modelnaam is leeg voor categorieclassificatie.");
@@ -117,9 +100,8 @@ namespace AI_FileOrganizer.Services
 </tekst_inhoud>" :
                 $@"<document_zonder_inhoud>
 {aiInputText}
-</document_zonder_inhode>";
+</document_zonder_inhoud>";
 
-            // AANGEPAST: Few-shot voorbeelden genereren nu ALLEEN de categorienaam.
             var fewShotExamples = @"
 Voorbeeld 1:
 Tekst: 'Ik heb mijn autoverzekering aangepast bij Interpolis.'
@@ -171,7 +153,7 @@ Documentinformatie:
 
 {textContext}
 
-Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorbeelden
+Antwoord: ";
 
             string chosenCategory = null;
 
@@ -184,10 +166,9 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
                     CATEGORY_TEMPERATURE,
                     cancellationToken
                 );
-                // <<< SIMULATE TOKEN USAGE >>>
                 if (chosenCategory != null)
                 {
-                    this.LastCallSimulatedTokensUsed = (prompt.Length / 4) + (chosenCategory.Length / 4); // Simple estimation
+                    this.LastCallSimulatedTokensUsed = (prompt.Length / 4) + (chosenCategory.Length / 4);
                 }
             }
             catch (OperationCanceledException)
@@ -203,16 +184,13 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
 
             _logger.Log($"DEBUG: Ruwe AI-antwoord voor categorie: '{chosenCategory?.Replace("\n", "\\n")}'.");
 
-            // GECORRIGEERD: Gebruik Regex.Replace voor case-insensitive vervanging
             if (!string.IsNullOrWhiteSpace(chosenCategory))
             {
-                // Verwijder specifieke prefixes die de AI mogelijk nog toevoegt
+                // Opschonen van AI-antwoord
                 chosenCategory = Regex.Replace(chosenCategory, "Antwoord:", "", RegexOptions.IgnoreCase).Trim();
                 chosenCategory = Regex.Replace(chosenCategory, "Categorie:", "", RegexOptions.IgnoreCase).Trim();
-                // Verwijder eventuele quotes als de AI deze onverhoopt toevoegt
                 chosenCategory = chosenCategory.Trim('\'', '\"');
             }
-
 
             if (string.IsNullOrWhiteSpace(chosenCategory))
             {
@@ -220,13 +198,9 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
                 return DEFAULT_FALLBACK_CATEGORY;
             }
 
-            // `chosenCategory` is al getrimd door de bovenstaande opschoning, maar deze regel kan blijven voor consistentie.
-            // chosenCategory = chosenCategory.Trim(); 
-
             if (validCategories.Contains(chosenCategory))
                 return chosenCategory;
 
-            // Verbeterde fuzzy matching: controleer op containment en gelijkenis
             foreach (var validCat in validCategories)
             {
                 if (validCat.Equals(chosenCategory, StringComparison.OrdinalIgnoreCase) ||
@@ -242,7 +216,6 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
             return DEFAULT_FALLBACK_CATEGORY;
         }
 
-
         /// <summary>
         /// Sugereert een submapnaam op basis van de inhoud van een document en de originele bestandsnaam.
         /// </summary>
@@ -253,7 +226,7 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
             string modelName,
             CancellationToken cancellationToken)
         {
-            this.LastCallSimulatedTokensUsed = 0; // Reset for this call
+            this.LastCallSimulatedTokensUsed = 0;
 
             if (aiProvider == null)
             {
@@ -268,9 +241,8 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
             }
 
             bool wasTextMeaningful;
-            string aiInputText = GetRelevantTextForAI(textToAnalyze, originalFilename, 2000, out wasTextMeaningful); // Max 2000 chars
+            string aiInputText = GetRelevantTextForAI(textToAnalyze, originalFilename, 2000, out wasTextMeaningful);
 
-            // Pas de prompt aan op basis van de aanwezigheid van zinvolle tekst
             string textContext = wasTextMeaningful ?
                 $@"<tekst_inhoud>
 {aiInputText}
@@ -278,7 +250,6 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
                 $@"<document_zonder_inhoud>
 {aiInputText}
 </document_zonder_inhoud>";
-
 
             var prompt = $@"
 ### SYSTEM INSTRUCTIE
@@ -325,7 +296,7 @@ Antwoord: Huwelijksakte Piet en Nel
 
 {textContext}
 
-Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorbeelden
+Antwoord: ";
 
             string suggestedName = null;
 
@@ -338,7 +309,6 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
                     SUBFOLDER_TEMPERATURE,
                     cancellationToken
                 );
-                // <<< SIMULATE TOKEN USAGE >>>
                 if (suggestedName != null)
                 {
                     this.LastCallSimulatedTokensUsed = (prompt.Length / 4) + (suggestedName.Length / 4);
@@ -357,7 +327,6 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
 
             _logger.Log($"DEBUG: Ruwe AI-antwoord voor submapnaam: '{suggestedName?.Replace("\n", "\\n")}'.");
 
-            // GECORRIGEERD: Gebruik Regex.Replace voor case-insensitive vervanging
             if (!string.IsNullOrWhiteSpace(suggestedName))
             {
                 suggestedName = Regex.Replace(suggestedName, "Antwoord:", "", RegexOptions.IgnoreCase).Trim();
@@ -367,15 +336,13 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
             string cleaned = FileUtils.SanitizeFolderOrFileName(suggestedName?.Trim() ?? "");
             var generiek = new[] { "document", "bestand", "info", "overig", "algemeen", "diversen", "" };
 
-            // Controleer of de eerste AI-suggestie bruikbaar is.
             bool needsRetry = string.IsNullOrWhiteSpace(cleaned) || cleaned.Length < 3 || generiek.Contains(cleaned.ToLowerInvariant());
 
             if (needsRetry)
             {
                 _logger.Log($"INFO: Eerste AI-suggestie '{suggestedName?.Trim() ?? "[LEEG]"}' voor '{originalFilename}' was onbruikbaar (leeg/te kort/generiek). Start retry...");
-                long previousTokens = this.LastCallSimulatedTokensUsed; // Store tokens from first attempt
+                long previousTokens = this.LastCallSimulatedTokensUsed;
 
-                // Sterkere retry prompt om de AI te dwingen een bruikbare naam te geven.
                 var retryPrompt = prompt + "\n\nDe vorige suggestie was niet bruikbaar. Denk goed na en geef nu alsnog een CONCRETE, KORTE EN BESCHRIJVENDE mapnaam. De output moet DIRECT de naam zijn.";
                 try
                 {
@@ -387,15 +354,13 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
                         cancellationToken
                     );
 
-                    // <<< SIMULATE TOKEN USAGE (RETRY) >>>
                     if (suggestedName != null)
                     {
                         this.LastCallSimulatedTokensUsed = previousTokens + (retryPrompt.Length / 4) + (suggestedName.Length / 4);
                     }
 
-
                     _logger.Log($"DEBUG: Ruwe AI-antwoord voor submapnaam (retry): '{suggestedName?.Replace("\n", "\\n")}'.");
-                    // GECORRIGEERD: Opschoning na retry met Regex.Replace
+
                     if (!string.IsNullOrWhiteSpace(suggestedName))
                     {
                         suggestedName = Regex.Replace(suggestedName, "Antwoord:", "", RegexOptions.IgnoreCase).Trim();
@@ -409,24 +374,21 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
                 }
             }
 
-            // Finale validatie na (eventuele) retry
             if (string.IsNullOrWhiteSpace(cleaned) || cleaned.Length < 3 || generiek.Contains(cleaned.ToLowerInvariant()))
             {
                 _logger.Log($"INFO: AI faalde voor '{originalFilename}' na retry of initieel. Probeer patroon-gebaseerde fallback...");
-
                 cleaned = FileUtils.FallbackFolderNameFromFilename(originalFilename);
 
                 if (string.IsNullOrWhiteSpace(cleaned))
                 {
                     _logger.Log($"WAARSCHUWING: Geen bruikbare submapnaam gevonden voor '{originalFilename}'. Bestand blijft mogelijk in hoofdmap van de categorie.");
-                    return null; // Geen bruikbare submapnaam, laat hoger niveau bepalen
+                    return null;
                 }
             }
 
             // Zet naar title case voor consistentie
             return CultureInfo.CurrentCulture.TextInfo.ToTitleCase(cleaned.ToLowerInvariant());
         }
-
 
         /// <summary>
         /// Sugereert een nieuwe bestandsnaam op basis van de inhoud van een document en de originele bestandsnaam.
@@ -438,21 +400,21 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
             string modelName,
             CancellationToken cancellationToken)
         {
-            this.LastCallSimulatedTokensUsed = 0; // Reset for this call
+            this.LastCallSimulatedTokensUsed = 0;
 
             if (aiProvider == null)
             {
                 _logger.Log("FOUT: AI-provider is null voor bestandsnaam-suggestie.");
-                return Path.GetFileNameWithoutExtension(originalFilename); // Fallback gracefully
+                return Path.GetFileNameWithoutExtension(originalFilename);
             }
             if (string.IsNullOrWhiteSpace(modelName))
             {
                 _logger.Log("FOUT: Modelnaam is leeg voor bestandsnaam-suggestie.");
-                return Path.GetFileNameWithoutExtension(originalFilename); // Fallback gracefully
+                return Path.GetFileNameWithoutExtension(originalFilename);
             }
 
             bool wasTextMeaningful;
-            string aiInputText = GetRelevantTextForAI(textToAnalyze, originalFilename, 2000, out wasTextMeaningful); // Max 2000 chars
+            string aiInputText = GetRelevantTextForAI(textToAnalyze, originalFilename, 2000, out wasTextMeaningful);
 
             string textContext = wasTextMeaningful ?
                 $@"<tekst_inhoud>
@@ -461,7 +423,6 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
                 $@"<document_zonder_inhoud>
 {aiInputText}
 </document_zonder_inhoud>";
-
 
             var prompt = $@"
 Je bent een AI-assistent die helpt bij het organiseren van bestanden.
@@ -479,7 +440,7 @@ Als het document geen leesbare inhoud heeft (<document_zonder_inhoud>), focus da
 
 {textContext}
 
-Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorbeelden
+Antwoord: ";
 
             string suggestedName = null;
             try
@@ -491,7 +452,6 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
                     FILENAME_TEMPERATURE,
                     cancellationToken
                 );
-                // <<< SIMULATE TOKEN USAGE >>>
                 if (suggestedName != null)
                 {
                     this.LastCallSimulatedTokensUsed = (prompt.Length / 4) + (suggestedName.Length / 4);
@@ -500,28 +460,20 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
             catch (OperationCanceledException)
             {
                 _logger.Log($"INFO: Bestandsnaam AI-suggestie voor '{originalFilename}' geannuleerd.");
-                throw; // Propagate cancellation
+                throw;
             }
             catch (Exception ex)
             {
                 _logger.Log($"FOUT: Fout bij bestandsnaam AI-aanroep voor '{originalFilename}': {ex.Message}");
-                return Path.GetFileNameWithoutExtension(originalFilename); // Fallback on error
+                return Path.GetFileNameWithoutExtension(originalFilename);
             }
 
             _logger.Log($"DEBUG: Ruwe AI-antwoord voor bestandsnaam: '{suggestedName?.Replace("\n", "\\n")}'.");
 
-            // GECORRIGEERD: Gebruik Regex.Replace voor case-insensitive vervanging
             if (!string.IsNullOrWhiteSpace(suggestedName))
             {
                 suggestedName = Regex.Replace(suggestedName, "Antwoord:", "", RegexOptions.IgnoreCase).Trim();
                 suggestedName = suggestedName.Trim('\'', '\"');
-            }
-
-
-            if (string.IsNullOrWhiteSpace(suggestedName))
-            {
-                _logger.Log($"WAARSCHUWING: AI retourneerde geen bruikbare bestandsnaam (leeg of witruimte) voor '{originalFilename}'. Gebruik originele naam.");
-                return Path.GetFileNameWithoutExtension(originalFilename);
             }
 
             string cleanedName = FileUtils.SanitizeFolderOrFileName(suggestedName?.Trim() ?? "");
@@ -534,13 +486,45 @@ Antwoord: "; // AANGEPAST: Maak de laatste promptregel consistenter met de voorb
             }
 
             // Apply max length constraint
-            if (cleanedName.Length > 100) // Hardcoded max length for filenames, adjust as needed
+            if (cleanedName.Length > 100)
             {
                 cleanedName = cleanedName.Substring(0, 100);
                 _logger.Log($"INFO: AI-gegenereerde bestandsnaam voor '{originalFilename}' afgekort naar '{cleanedName}' wegens lengtebeperking.");
             }
 
             return cleanedName;
+        }
+
+        /// <summary>
+        /// Berekent cosine similarity tussen twee vectors
+        /// </summary>
+        public static double CosineSimilarity(float[] v1, float[] v2)
+        {
+            double dot = 0.0, mag1 = 0.0, mag2 = 0.0;
+            for (int i = 0; i < v1.Length; i++)
+            {
+                dot += v1[i] * v2[i];
+                mag1 += v1[i] * v1[i];
+                mag2 += v2[i] * v2[i];
+            }
+            return dot / (Math.Sqrt(mag1) * Math.Sqrt(mag2));
+        }
+
+        /// <summary>
+        /// Selecteert relevante tekst voor AI-input
+        /// </summary>
+        private string GetRelevantTextForAI(string extractedText, string originalFilename, int maxLength, out bool wasTextMeaningful)
+        {
+            if (string.IsNullOrWhiteSpace(extractedText?.Trim()))
+            {
+                wasTextMeaningful = false;
+                return $"Dit document heeft de bestandsnaam '{Path.GetFileNameWithoutExtension(originalFilename)}'. Er kon geen inhoud uit het document worden geëxtraheerd, of de inhoud was leeg. Analyseer alleen de bestandsnaam en probeer daaruit de essentie te halen.";
+            }
+            else
+            {
+                wasTextMeaningful = true;
+                return extractedText.Substring(0, Math.Min(extractedText.Length, maxLength));
+            }
         }
     }
 }

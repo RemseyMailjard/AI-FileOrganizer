@@ -13,6 +13,7 @@ namespace AI_FileOrganizer.Services
         private const string GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models/";
         private readonly HttpClient _httpClient;
         private readonly string _apiKey;
+        private const int MaxGeminiTokens = 2048;
 
         public GeminiAiProvider(string apiKey, HttpClient httpClient)
         {

@@ -239,6 +239,7 @@
             this.cmbModelSelection.Name = "cmbModelSelection";
             this.cmbModelSelection.Size = new System.Drawing.Size(674, 24);
             this.cmbModelSelection.TabIndex = 13;
+            this.cmbModelSelection.SelectedIndexChanged += new System.EventHandler(this.cmbModelSelection_SelectedIndexChanged);
             // 
             // chkRenameFiles
             // 
