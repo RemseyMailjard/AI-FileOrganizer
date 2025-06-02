@@ -1,7 +1,9 @@
-﻿; ---------- Bovenin ----------
-#define MyAppName      "AI-FileOrganizer"
+﻿; ------------------------------------------------------------
+; Inno Setup-script voor AI-FileOrganizer
+; ------------------------------------------------------------
+#define MyAppName "AI-FileOrganizer"
 
-; Versie injecteren vanuit de CLI (/dMyAppVersion=1.7.0)
+; Versie-injectie via CLI:  iscc ... /dMyAppVersion=1.8.0
 #ifndef MyAppVersion
   #define MyAppVersion "0.0.0-dev"
 #endif
@@ -10,28 +12,33 @@
 #define MyAppURL       "https://www.aibuddies.nl"
 #define MyAppExeName   "AI-FileOrganizer.exe"
 
-; ---------- Setup ----------
+; ──────────────────────────────────────────────────────────────
 [Setup]
-AppId={{FE221BE4-56B8-4FD7-AD00-615E3278F31E}}     ; gefixt: ‘{{’ → ‘{’  &  sluit-}
+AppId={{FE221BE4-56B8-4FD7-AD00-615E3278F31E}}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
+AppPublisher={#MyAppPublisher}
+AppPublisherURL={#MyAppURL}
+AppSupportURL={#MyAppURL}
+AppUpdatesURL={#MyAppURL}
+
 DefaultDirName={autopf}\{#MyAppName}
+UninstallDisplayIcon={app}\{#MyAppExeName}
+
 OutputDir=.
 OutputBaseFilename=AI-FileOrganizerSetup
-PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=dialog
 SolidCompression=yes
 WizardStyle=modern
-LicenseFile=Installer\MIT License (MIT-licentie).txt
-InfoBeforeFile=Installer\installatie-informatie.txt
-; (…rest ongewijzigd…)
+PrivilegesRequired=lowest
+PrivilegesRequiredOverridesAllowed=dialog
 
-; ---------- Bestanden ----------
+LicenseFile="Installer\MIT License (MIT-licentie).txt"
+InfoBeforeFile="Installer\installatie-informatie.txt"
+
 [Files]
-; Pak heel de Release-map mee in één regel:
-Source: "..\bin\Release\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
-; Wil je wél handmatig filteren? Gebruik ‘_Prepend’ helpers om herhaling te schrappen.
+; Neem alles uit bin\Release\ mee
+Source: "..\bin\Release\*"; DestDir: "{app}";
+       Flags: recursesubdirs createallsubdirs ignoreversion
 
-; ---------- Taal ----------
 [Languages]
 Name: "dutch"; MessagesFile: "compiler:Languages\Dutch.isl"
