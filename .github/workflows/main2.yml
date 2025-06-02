@@ -1,0 +1,59 @@
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.set_version.outputs.version }}
+      is_tag: ${{ steps.set_version.outputs.is_tag }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: set_version
+        run: |
+          echo "version=1.0.0" >> "$GITHUB_OUTPUT"
+          echo "is_tag=false" >> "$GITHUB_OUTPUT"
+
+      - uses: nuget/setup-nuget@v2
+        with:
+          nuget-version: 'latest'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.config') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore NuGet packages
+        run: nuget restore AI-FileOrganizer.sln
+
+      - uses: microsoft/setup-msbuild@v2
+
+      - name: Build solution
+        run: msbuild AI-FileOrganizer.sln /p:Configuration=Release
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress
+
+      - name: Run Inno Setup (inject versie)
+        run: |
+          iscc Installer\\AI-FolderInno.iss `
+            /dMyAppVersion=${{ steps.set_version.outputs.version }}
+        env:
+          PATH: "C:\\Program Files (x86)\\Inno Setup 6;${{ env.PATH }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: setup-exe
+          path: Installer\AI-FileOrganizerSetup.exe
+          retention-days: 7
