@@ -3,7 +3,7 @@ name: Build & Release
 on:
   push:
     branches: [dev]          # altijd bouwen op dev
-    tags:     ['v*']         # én release bij semver-tags
+    tags:     ['v*']         # én een release bij semver-tags
   workflow_dispatch:         # handmatig starten met eigen versie
     inputs:
       version:
@@ -12,7 +12,7 @@ on:
         default: ''
 
 permissions:
-  contents: write            # softprops/action-gh-release heeft dit nodig
+  contents: write            # nodig voor de release-actie
 
 jobs:
   build:
@@ -22,7 +22,7 @@ jobs:
       is_tag:  ${{ steps.set_version.outputs.is_tag }}
 
     steps:
-      # ── Broncode ────────────────────────────────────────────
+      # ── Broncode ophalen ───────────────────────────────────
       - uses: actions/checkout@v4
 
       # ── Versie bepalen ─────────────────────────────────────
@@ -31,19 +31,19 @@ jobs:
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             ver="${GITHUB_REF_NAME#v}"
-            is_tag="true"
+            is_tag=true
           elif [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ github.event.inputs.version }}" ]]; then
             ver="${{ github.event.inputs.version }}"
-            is_tag="true"
+            is_tag=true
           else
             ver="dev-${GITHUB_SHA:0:7}"
-            is_tag="false"
+            is_tag=false
           fi
           echo "VERSION=$ver"   >> $GITHUB_ENV
           echo "version=$ver"   >> $GITHUB_OUTPUT
           echo "is_tag=$is_tag" >> $GITHUB_OUTPUT
 
-      # ── NuGet restore (+ cache) ────────────────────────────
+      # ── NuGet restore (met cache) ──────────────────────────
       - uses: nuget/setup-nuget@v2
         with:
           nuget-version: latest
@@ -52,12 +52,13 @@ jobs:
         with:
           path: packages
           key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.config') }}
-          restore-keys: ${{ runner.os }}-nuget-
+          restore-keys: |
+            ${{ runner.os }}-nuget-
 
       - name: Restore NuGet packages
         run: nuget restore AI-FileOrganizer.sln
 
-      # ── MSBuild ─────────────────────────────────────────────
+      # ── Build ──────────────────────────────────────────────
       - uses: microsoft/setup-msbuild@v2
 
       - name: Build solution
@@ -67,10 +68,8 @@ jobs:
       - name: Install Inno Setup
         run: choco install innosetup --no-progress
 
-      - name: Run Inno Setup (inject versie)
-        run: |
-          iscc Installer\\AI-FolderInno.iss ^
-               /dMyAppVersion=${{ env.VERSION }}
+      - name: Run Inno Setup
+        run: iscc Installer\AI-FolderInno.iss /dMyAppVersion=${{ env.VERSION }}
         env:
           PATH: C:\Program Files (x86)\Inno Setup 6;${{ env.PATH }}
 
