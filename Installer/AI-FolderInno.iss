@@ -43,6 +43,15 @@ InfoBeforeFile="installatie-informatie.txt"
 Name: "dutch"; MessagesFile: "compiler:Languages\Dutch.isl"
 
 [Files]
-; Neem alles uit bin\Release\ mee
-Source: "..\bin\Release\*"; DestDir: "{app}";
-       Flags: recursesubdirs createallsubdirs ignoreversion
+Source: "..\bin\Release\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
+
+
+[Tasks]
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+
+[Icons]
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{autodesktop}\{#MyAppName}";  Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+
+[Run]
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
