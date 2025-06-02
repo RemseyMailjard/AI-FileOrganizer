@@ -6,7 +6,11 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using AI_FileOrganizer.Utils;
+using AI_FileOrganizer.Utils; // Voor ILogger en FileUtils
+
+// Zorg ervoor dat de IAiProvider interface en alle provider implementaties
+// (OnnxRobBERTProvider, GeminiAiProvider, OpenAiProvider, AzureOpenAiProvider)
+// correct zijn gedefinieerd en toegankelijk zijn via hun namespaces.
 
 namespace AI_FileOrganizer.Services
 {
@@ -19,10 +23,9 @@ namespace AI_FileOrganizer.Services
         // AI-parameters
         private const int CATEGORY_MAX_TOKENS = 50;
         private const float CATEGORY_TEMPERATURE = 0.0f;
-        private const int SUBFOLDER_MAX_TOKENS = 20;
-        private const float SUBFOLDER_TEMPERATURE = 0.2f;
-        private const int FILENAME_MAX_TOKENS = 30;
-        private const float FILENAME_TEMPERATURE = 0.3f;
+
+        private const int EFFECTIVE_FILENAME_MAX_TOKENS = 20;
+        private const float EFFECTIVE_FILENAME_TEMPERATURE = 0.2f;
 
         public AiClassificationService(ILogger logger)
         {
@@ -30,9 +33,6 @@ namespace AI_FileOrganizer.Services
             LastCallSimulatedTokensUsed = 0;
         }
 
-        /// <summary>
-        /// Classificeert een document naar categorie. Werkt met prompt-based (GPT, OpenAI, Gemini) en ONNX/RobBERT (cosine similarity).
-        /// </summary>
         public async Task<string> ClassifyCategoryAsync(
             string textToClassify,
             string originalFilename,
@@ -40,37 +40,61 @@ namespace AI_FileOrganizer.Services
             IAiProvider aiProvider,
             string modelName,
             CancellationToken cancellationToken,
-            Dictionary<string, float[]> categoryEmbeddings = null // Alleen voor ONNX RobBERT
-        )
+            Dictionary<string, float[]> categoryEmbeddings = null)
         {
-            this.LastCallSimulatedTokensUsed = 0; // Reset
+            this.LastCallSimulatedTokensUsed = 0;
 
-            // Embedding-based classificatie (RobBERT ONNX of vergelijkbaar)
             if (aiProvider is OnnxRobBERTProvider robbertProvider && categoryEmbeddings != null)
             {
                 _logger.Log("INFO: Embedding-gebaseerde classificatie (RobBERT/ONNX) wordt gebruikt.");
                 string embeddingStr = await robbertProvider.GetTextCompletionAsync(
                     textToClassify, modelName, 0, 0, cancellationToken);
-                float[] docEmbedding = embeddingStr.Split(',').Select(s => float.Parse(s, CultureInfo.InvariantCulture)).ToArray();
 
-                // Zoek de beste categorie via cosine similarity
+                if (string.IsNullOrWhiteSpace(embeddingStr))
+                {
+                    _logger.Log("FOUT: RobBERT provider retourneerde een lege embedding string.");
+                    return DEFAULT_FALLBACK_CATEGORY;
+                }
+
+                float[] docEmbedding;
+                try
+                {
+                    docEmbedding = embeddingStr.Split(',')
+                       .Select(s => float.Parse(s.Trim(), CultureInfo.InvariantCulture))
+                       .ToArray();
+                }
+                catch (Exception ex)
+                {
+                    _logger.Log($"FOUT: Kon RobBERT embedding string niet parsen: {ex.Message}. Embedding string: '{embeddingStr}'");
+                    return DEFAULT_FALLBACK_CATEGORY;
+                }
+
                 string bestCategory = null;
                 double bestSim = double.MinValue;
                 foreach (var cat in categories)
                 {
-                    if (!categoryEmbeddings.ContainsKey(cat)) continue;
-                    double sim = CosineSimilarity(docEmbedding, categoryEmbeddings[cat]);
+                    if (!categoryEmbeddings.ContainsKey(cat))
+                    {
+                        _logger.Log($"WAARSCHUWING: Geen embedding gevonden voor categorie '{cat}' in de dictionary.");
+                        continue;
+                    }
+                    float[] catEmbedding = categoryEmbeddings[cat];
+                    if (catEmbedding == null || catEmbedding.Length != docEmbedding.Length)
+                    {
+                        _logger.Log($"WAARSCHUWING: Ongeldige of niet-overeenkomende embedding voor categorie '{cat}'. Overgeslagen.");
+                        continue;
+                    }
+                    double sim = CosineSimilarity(docEmbedding, catEmbedding);
                     if (sim > bestSim)
                     {
                         bestSim = sim;
                         bestCategory = cat;
                     }
                 }
-                _logger.Log($"INFO: RobBERT cosine similarity: '{bestCategory}' (sim score: {bestSim:0.###})");
+                _logger.Log($"INFO: RobBERT cosine similarity: '{bestCategory ?? "Geen"}' (sim score: {bestSim:0.###})");
                 return bestCategory ?? DEFAULT_FALLBACK_CATEGORY;
             }
 
-            // Prompt-based AI
             _logger.Log("INFO: Prompt-based classificatie (GPT/Gemini/OpenAI) wordt gebruikt.");
             if (string.IsNullOrWhiteSpace(textToClassify) && string.IsNullOrWhiteSpace(originalFilename))
             {
@@ -88,7 +112,11 @@ namespace AI_FileOrganizer.Services
                 return DEFAULT_FALLBACK_CATEGORY;
             }
 
-            var validCategories = new List<string>(categories) { DEFAULT_FALLBACK_CATEGORY };
+            var validCategories = new List<string>(categories);
+            if (!validCategories.Contains(DEFAULT_FALLBACK_CATEGORY, StringComparer.OrdinalIgnoreCase))
+            {
+                validCategories.Add(DEFAULT_FALLBACK_CATEGORY);
+            }
             var categoryListForPrompt = string.Join("\n- ", categories);
 
             bool wasTextMeaningful;
@@ -186,10 +214,9 @@ Antwoord: ";
 
             if (!string.IsNullOrWhiteSpace(chosenCategory))
             {
-                // Opschonen van AI-antwoord
                 chosenCategory = Regex.Replace(chosenCategory, "Antwoord:", "", RegexOptions.IgnoreCase).Trim();
                 chosenCategory = Regex.Replace(chosenCategory, "Categorie:", "", RegexOptions.IgnoreCase).Trim();
-                chosenCategory = chosenCategory.Trim('\'', '\"');
+                chosenCategory = chosenCategory.Trim('\'', '\"', '.', '-').Trim();
             }
 
             if (string.IsNullOrWhiteSpace(chosenCategory))
@@ -198,13 +225,19 @@ Antwoord: ";
                 return DEFAULT_FALLBACK_CATEGORY;
             }
 
-            if (validCategories.Contains(chosenCategory))
-                return chosenCategory;
+            var exactMatch = validCategories.FirstOrDefault(vc => vc.Equals(chosenCategory, StringComparison.Ordinal));
+            if (exactMatch != null) return exactMatch;
+
+            var caseInsensitiveMatch = validCategories.FirstOrDefault(vc => vc.Equals(chosenCategory, StringComparison.OrdinalIgnoreCase));
+            if (caseInsensitiveMatch != null)
+            {
+                _logger.Log($"INFO: Gevonden categorie '{chosenCategory}' case-insensitive matched naar '{caseInsensitiveMatch}'.");
+                return caseInsensitiveMatch;
+            }
 
             foreach (var validCat in validCategories)
             {
-                if (validCat.Equals(chosenCategory, StringComparison.OrdinalIgnoreCase) ||
-                    validCat.ToLowerInvariant().Contains(chosenCategory.ToLowerInvariant()) ||
+                if (validCat.ToLowerInvariant().Contains(chosenCategory.ToLowerInvariant()) ||
                     chosenCategory.ToLowerInvariant().Contains(validCat.ToLowerInvariant()))
                 {
                     _logger.Log($"INFO: Gevonden categorie '{chosenCategory}' fuzzy-matched naar '{validCat}'.");
@@ -216,10 +249,7 @@ Antwoord: ";
             return DEFAULT_FALLBACK_CATEGORY;
         }
 
-        /// <summary>
-        /// Sugereert een submapnaam op basis van de inhoud van een document en de originele bestandsnaam.
-        /// </summary>
-        public async Task<string> SuggestSubfolderNameAsync(
+        public Task<string> SuggestSubfolderNameAsync(
             string textToAnalyze,
             string originalFilename,
             IAiProvider aiProvider,
@@ -227,17 +257,29 @@ Antwoord: ";
             CancellationToken cancellationToken)
         {
             this.LastCallSimulatedTokensUsed = 0;
+            _logger.Log($"INFO: AI-suggestie voor submapnaam voor '{originalFilename}' wordt overgeslagen zoals geconfigureerd.");
+            return Task.FromResult<string>(null);
+        }
+
+        public async Task<string> SuggestFileNameAsync(
+            string textToAnalyze,
+            string originalFilename,
+            IAiProvider aiProvider,
+            string modelName,
+            CancellationToken cancellationToken)
+        {
+            this.LastCallSimulatedTokensUsed = 0;
+            string originalFilenameWithoutExtension = Path.GetFileNameWithoutExtension(originalFilename);
 
             if (aiProvider == null)
             {
-                _logger.Log("FOUT: AI-provider is null voor submapnaam-suggestie.");
-                return null;
+                _logger.Log("FOUT: AI-provider is null voor bestandsnaam-suggestie. Gebruik originele naam.");
+                return originalFilenameWithoutExtension;
             }
-
             if (string.IsNullOrWhiteSpace(modelName))
             {
-                _logger.Log("FOUT: Modelnaam is leeg voor submapnaam-suggestie.");
-                return null;
+                _logger.Log("FOUT: Modelnaam is leeg voor bestandsnaam-suggestie. Gebruik originele naam.");
+                return originalFilenameWithoutExtension;
             }
 
             bool wasTextMeaningful;
@@ -253,33 +295,33 @@ Antwoord: ";
 
             var prompt = $@"
 ### SYSTEM INSTRUCTIE
-Je bent een AI-assistent die helpt bij het organiseren van documenten in logische mappen. 
-Je taak is om een **korte en beschrijvende submapnaam** te suggereren op basis van de documentinhoud of de bestandsnaam als fallback.
+Je bent een AI-assistent die helpt bij het organiseren van bestanden.
+Je taak is om een **korte en beschrijvende bestandsnaam (zonder extensie)** te suggereren op basis van de documentinhoud of de oorspronkelijke bestandsnaam als fallback.
 
 ### INSTRUCTIES
 - Gebruik maximaal **5 woorden**.
 - Vat het hoofdonderwerp of doel van het document bondig samen.
-- Vermijd generieke termen zoals 'document', 'info', 'bestand', 'overig' of alleen een datum.
+- Vermijd generieke termen zoals 'document', 'info', 'bestand', 'overig', 'factuur', 'algemeen', 'diversen' of alleen een datum zonder context.
 - Gebruik bij voorkeur betekenisvolle termen zoals 'Belastingaangifte 2023' of 'CV Jan Jansen'.
-- **GEEF ENKEL DE SUBMAPNAAM TERUG – GEEN uitleg, GEEN opmaak, GEEN opsomming, GEEN quotes of padscheidingstekens, GEEN inleidende zinnen (zoals 'De submapnaam is:').**
+- **GEEF ENKEL DE BESTANDSNAAM TERUG – GEEN uitleg, GEEN opmaak, GEEN opsomming, GEEN quotes, GEEN bestandsextensie, GEEN inleidende zinnen (zoals 'De bestandsnaam is:').**
 - Als het document geen leesbare inhoud heeft (<document_zonder_inhoud>), focus dan op de originele bestandsnaam en de algemene beschrijving in dat blok.
 
 ### FEW-SHOT VOORBEELDEN
 <voorbeeld>
-Bestandsnaam: jaaropgave_2023_ing.pdf  
-Tekst: Dit document betreft uw jaarlijkse jaaropgave voor belastingdoeleinden...  
+Bestandsnaam: jaaropgave_2023_ing.pdf
+Tekst: Dit document betreft uw jaarlijkse jaaropgave voor belastingdoeleinden...
 Antwoord: Jaaropgave ING 2023
 </voorbeeld>
 
 <voorbeeld>
-Bestandsnaam: cv_jan.docx  
-Tekst: Curriculum Vitae van Jan Jansen met werkervaring in IT...  
+Bestandsnaam: cv_jan.docx
+Tekst: Curriculum Vitae van Jan Jansen met werkervaring in IT...
 Antwoord: CV Jan Jansen
 </voorbeeld>
 
 <voorbeeld>
-Bestandsnaam: offerte_hypotheek_rabobank.pdf  
-Tekst: Geachte heer, hierbij ontvangt u uw hypotheekofferte...  
+Bestandsnaam: offerte_hypotheek_rabobank.pdf
+Tekst: Geachte heer, hierbij ontvangt u uw hypotheekofferte...
 Antwoord: Hypotheekofferte Rabobank
 </voorbeeld>
 
@@ -305,151 +347,8 @@ Antwoord: ";
                 suggestedName = await aiProvider.GetTextCompletionAsync(
                     prompt,
                     modelName,
-                    SUBFOLDER_MAX_TOKENS,
-                    SUBFOLDER_TEMPERATURE,
-                    cancellationToken
-                );
-                if (suggestedName != null)
-                {
-                    this.LastCallSimulatedTokensUsed = (prompt.Length / 4) + (suggestedName.Length / 4);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                _logger.Log($"INFO: Submapnaam AI-suggestie voor '{originalFilename}' geannuleerd.");
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.Log($"FOUT: Fout bij submapnaam AI-aanroep voor '{originalFilename}': {ex.Message}");
-                return null;
-            }
-
-            _logger.Log($"DEBUG: Ruwe AI-antwoord voor submapnaam: '{suggestedName?.Replace("\n", "\\n")}'.");
-
-            if (!string.IsNullOrWhiteSpace(suggestedName))
-            {
-                suggestedName = Regex.Replace(suggestedName, "Antwoord:", "", RegexOptions.IgnoreCase).Trim();
-                suggestedName = suggestedName.Trim('\'', '\"');
-            }
-
-            string cleaned = FileUtils.SanitizeFolderOrFileName(suggestedName?.Trim() ?? "");
-            var generiek = new[] { "document", "bestand", "info", "overig", "algemeen", "diversen", "" };
-
-            bool needsRetry = string.IsNullOrWhiteSpace(cleaned) || cleaned.Length < 3 || generiek.Contains(cleaned.ToLowerInvariant());
-
-            if (needsRetry)
-            {
-                _logger.Log($"INFO: Eerste AI-suggestie '{suggestedName?.Trim() ?? "[LEEG]"}' voor '{originalFilename}' was onbruikbaar (leeg/te kort/generiek). Start retry...");
-                long previousTokens = this.LastCallSimulatedTokensUsed;
-
-                var retryPrompt = prompt + "\n\nDe vorige suggestie was niet bruikbaar. Denk goed na en geef nu alsnog een CONCRETE, KORTE EN BESCHRIJVENDE mapnaam. De output moet DIRECT de naam zijn.";
-                try
-                {
-                    suggestedName = await aiProvider.GetTextCompletionAsync(
-                        retryPrompt,
-                        modelName,
-                        SUBFOLDER_MAX_TOKENS,
-                        SUBFOLDER_TEMPERATURE,
-                        cancellationToken
-                    );
-
-                    if (suggestedName != null)
-                    {
-                        this.LastCallSimulatedTokensUsed = previousTokens + (retryPrompt.Length / 4) + (suggestedName.Length / 4);
-                    }
-
-                    _logger.Log($"DEBUG: Ruwe AI-antwoord voor submapnaam (retry): '{suggestedName?.Replace("\n", "\\n")}'.");
-
-                    if (!string.IsNullOrWhiteSpace(suggestedName))
-                    {
-                        suggestedName = Regex.Replace(suggestedName, "Antwoord:", "", RegexOptions.IgnoreCase).Trim();
-                        suggestedName = suggestedName.Trim('\'', '\"');
-                    }
-                    cleaned = FileUtils.SanitizeFolderOrFileName(suggestedName?.Trim() ?? "");
-                }
-                catch (Exception ex)
-                {
-                    _logger.Log($"FOUT: Retry submapnaam faalde voor '{originalFilename}': {ex.Message}");
-                }
-            }
-
-            if (string.IsNullOrWhiteSpace(cleaned) || cleaned.Length < 3 || generiek.Contains(cleaned.ToLowerInvariant()))
-            {
-                _logger.Log($"INFO: AI faalde voor '{originalFilename}' na retry of initieel. Probeer patroon-gebaseerde fallback...");
-                cleaned = FileUtils.FallbackFolderNameFromFilename(originalFilename);
-
-                if (string.IsNullOrWhiteSpace(cleaned))
-                {
-                    _logger.Log($"WAARSCHUWING: Geen bruikbare submapnaam gevonden voor '{originalFilename}'. Bestand blijft mogelijk in hoofdmap van de categorie.");
-                    return null;
-                }
-            }
-
-            // Zet naar title case voor consistentie
-            return CultureInfo.CurrentCulture.TextInfo.ToTitleCase(cleaned.ToLowerInvariant());
-        }
-
-        /// <summary>
-        /// Sugereert een nieuwe bestandsnaam op basis van de inhoud van een document en de originele bestandsnaam.
-        /// </summary>
-        public async Task<string> SuggestFileNameAsync(
-            string textToAnalyze,
-            string originalFilename,
-            IAiProvider aiProvider,
-            string modelName,
-            CancellationToken cancellationToken)
-        {
-            this.LastCallSimulatedTokensUsed = 0;
-
-            if (aiProvider == null)
-            {
-                _logger.Log("FOUT: AI-provider is null voor bestandsnaam-suggestie.");
-                return Path.GetFileNameWithoutExtension(originalFilename);
-            }
-            if (string.IsNullOrWhiteSpace(modelName))
-            {
-                _logger.Log("FOUT: Modelnaam is leeg voor bestandsnaam-suggestie.");
-                return Path.GetFileNameWithoutExtension(originalFilename);
-            }
-
-            bool wasTextMeaningful;
-            string aiInputText = GetRelevantTextForAI(textToAnalyze, originalFilename, 2000, out wasTextMeaningful);
-
-            string textContext = wasTextMeaningful ?
-                $@"<tekst_inhoud>
-{aiInputText}
-</tekst_inhoud>" :
-                $@"<document_zonder_inhoud>
-{aiInputText}
-</document_zonder_inhoud>";
-
-            var prompt = $@"
-Je bent een AI-assistent die helpt bij het organiseren van bestanden.
-Analyseer de volgende informatie over een document (oorspronkelijke bestandsnaam: ""{originalFilename}"") en stel een KORTE, BESCHRIJVENDE bestandsnaam voor (maximaal 10 woorden).
-Deze bestandsnaam moet het hoofdonderwerp of de essentie van het document samenvatten, zonder de bestandsextensie.
-Gebruik geen ongeldige karakters voor bestandsnamen.
-Voorbeelden: ""Jaarverslag 2023 Hypotheekofferte Rabobank"", ""Notulen Project X"", ""CV Jan Jansen"".
-Vermijd generieke namen zoals ""Document"", ""Bestand"", ""Info"", ""Factuur"" of simpelweg een datum zonder context.
-**Geef ALLEEN de voorgestelde bestandsnaam terug, zonder extra uitleg of opmaak, en ZONDER quotes of extensie, en GEEN inleidende zinnen (zoals 'De bestandsnaam is:').**
-Als het document geen leesbare inhoud heeft (<document_zonder_inhoud>), focus dan op de originele bestandsnaam en de algemene beschrijving in dat blok.
-
-<bestandsnaam>
-{originalFilename}
-</bestandsnaam>
-
-{textContext}
-
-Antwoord: ";
-
-            string suggestedName = null;
-            try
-            {
-                suggestedName = await aiProvider.GetTextCompletionAsync(
-                    prompt,
-                    modelName,
-                    FILENAME_MAX_TOKENS,
-                    FILENAME_TEMPERATURE,
+                    EFFECTIVE_FILENAME_MAX_TOKENS,
+                    EFFECTIVE_FILENAME_TEMPERATURE,
                     cancellationToken
                 );
                 if (suggestedName != null)
@@ -464,8 +363,8 @@ Antwoord: ";
             }
             catch (Exception ex)
             {
-                _logger.Log($"FOUT: Fout bij bestandsnaam AI-aanroep voor '{originalFilename}': {ex.Message}");
-                return Path.GetFileNameWithoutExtension(originalFilename);
+                _logger.Log($"FOUT: Fout bij bestandsnaam AI-aanroep voor '{originalFilename}': {ex.Message}. Gebruik originele naam.");
+                return originalFilenameWithoutExtension;
             }
 
             _logger.Log($"DEBUG: Ruwe AI-antwoord voor bestandsnaam: '{suggestedName?.Replace("\n", "\\n")}'.");
@@ -473,33 +372,92 @@ Antwoord: ";
             if (!string.IsNullOrWhiteSpace(suggestedName))
             {
                 suggestedName = Regex.Replace(suggestedName, "Antwoord:", "", RegexOptions.IgnoreCase).Trim();
-                suggestedName = suggestedName.Trim('\'', '\"');
+                suggestedName = suggestedName.Trim('\'', '\"', '.', '-').Trim();
             }
 
             string cleanedName = FileUtils.SanitizeFolderOrFileName(suggestedName?.Trim() ?? "");
+            var generiek = new[] { "document", "bestand", "info", "overig", "algemeen", "diversen", "factuur", "" };
 
-            var genericNames = new[] { "document", "bestand", "info", "overig", "algemeen", "factuur", "" };
-            if (cleanedName.Length < 3 || genericNames.Contains(cleanedName.ToLowerInvariant()))
+            bool needsRetry = string.IsNullOrWhiteSpace(cleanedName) ||
+                              cleanedName.Length < 3 ||
+                              generiek.Any(g => cleanedName.Equals(g, StringComparison.OrdinalIgnoreCase)) ||
+                              Regex.IsMatch(cleanedName, @"^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}$") ||
+                              Regex.IsMatch(cleanedName, @"^\d{4}[-/]\d{1,2}[-/]\d{1,2}$");
+
+            if (needsRetry)
             {
-                _logger.Log($"WAARSCHUWING: AI-suggestie '{suggestedName?.Trim() ?? "[LEEG]"}' voor '{originalFilename}' is te kort of te generiek na opschonen. Gebruik originele naam.");
-                return Path.GetFileNameWithoutExtension(originalFilename);
+                _logger.Log($"INFO: Eerste AI-suggestie voor bestandsnaam '{suggestedName?.Trim() ?? "[LEEG]"}' voor '{originalFilename}' was onbruikbaar. Start retry...");
+                long previousTokens = this.LastCallSimulatedTokensUsed;
+
+                var retryPrompt = prompt + "\n\nDe vorige suggestie was niet bruikbaar. Geef nu een CONCRETE, KORTE EN BESCHRIJVENDE bestandsnaam (zonder extensie). De output moet DIRECT de naam zijn, niet alleen een datum.";
+                try
+                {
+                    suggestedName = await aiProvider.GetTextCompletionAsync(
+                        retryPrompt,
+                        modelName,
+                        EFFECTIVE_FILENAME_MAX_TOKENS,
+                        EFFECTIVE_FILENAME_TEMPERATURE,
+                        cancellationToken
+                    );
+
+                    if (suggestedName != null)
+                    {
+                        this.LastCallSimulatedTokensUsed = previousTokens + (retryPrompt.Length / 4) + (suggestedName.Length / 4);
+                    }
+
+                    _logger.Log($"DEBUG: Ruwe AI-antwoord voor bestandsnaam (retry): '{suggestedName?.Replace("\n", "\\n")}'.");
+
+                    if (!string.IsNullOrWhiteSpace(suggestedName))
+                    {
+                        suggestedName = Regex.Replace(suggestedName, "Antwoord:", "", RegexOptions.IgnoreCase).Trim();
+                        suggestedName = suggestedName.Trim('\'', '\"', '.', '-').Trim();
+                    }
+                    cleanedName = FileUtils.SanitizeFolderOrFileName(suggestedName?.Trim() ?? "");
+                }
+                catch (Exception ex)
+                {
+                    _logger.Log($"FOUT: Retry bestandsnaam AI-suggestie faalde voor '{originalFilename}': {ex.Message}");
+                    cleanedName = originalFilenameWithoutExtension;
+                    _logger.Log($"INFO: Gebruik originele bestandsnaam '{cleanedName}' na mislukte retry.");
+                }
             }
 
-            // Apply max length constraint
-            if (cleanedName.Length > 100)
+            if (string.IsNullOrWhiteSpace(cleanedName) ||
+                cleanedName.Length < 3 ||
+                generiek.Any(g => cleanedName.Equals(g, StringComparison.OrdinalIgnoreCase)) ||
+                Regex.IsMatch(cleanedName, @"^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}$") ||
+                Regex.IsMatch(cleanedName, @"^\d{4}[-/]\d{1,2}[-/]\d{1,2}$"))
             {
-                cleanedName = cleanedName.Substring(0, 100);
+                _logger.Log($"WAARSCHUWING: AI faalde een bruikbare bestandsnaam te genereren voor '{originalFilename}'. Gebruik originele naam.");
+                cleanedName = originalFilenameWithoutExtension;
+            }
+
+            int maxFilenameLength = 100;
+            if (cleanedName.Length > maxFilenameLength)
+            {
+                cleanedName = cleanedName.Substring(0, maxFilenameLength);
+                int lastSpace = cleanedName.LastIndexOf(' ');
+                if (lastSpace > maxFilenameLength / 2 && lastSpace > 0)
+                {
+                    cleanedName = cleanedName.Substring(0, lastSpace);
+                }
                 _logger.Log($"INFO: AI-gegenereerde bestandsnaam voor '{originalFilename}' afgekort naar '{cleanedName}' wegens lengtebeperking.");
             }
 
+            if (!cleanedName.Equals(originalFilenameWithoutExtension, StringComparison.Ordinal))
+            {
+                return CultureInfo.CurrentCulture.TextInfo.ToTitleCase(cleanedName.ToLowerInvariant());
+            }
             return cleanedName;
         }
 
-        /// <summary>
-        /// Berekent cosine similarity tussen twee vectors
-        /// </summary>
         public static double CosineSimilarity(float[] v1, float[] v2)
         {
+            if (v1 == null || v2 == null || v1.Length != v2.Length || v1.Length == 0)
+            {
+                return 0.0;
+            }
+
             double dot = 0.0, mag1 = 0.0, mag2 = 0.0;
             for (int i = 0; i < v1.Length; i++)
             {
@@ -507,23 +465,25 @@ Antwoord: ";
                 mag1 += v1[i] * v1[i];
                 mag2 += v2[i] * v2[i];
             }
-            return dot / (Math.Sqrt(mag1) * Math.Sqrt(mag2));
+
+            if (mag1 == 0.0 || mag2 == 0.0) return 0.0;
+
+            double similarity = dot / (Math.Sqrt(mag1) * Math.Sqrt(mag2));
+            return Math.Max(-1.0, Math.Min(1.0, similarity));
         }
 
-        /// <summary>
-        /// Selecteert relevante tekst voor AI-input
-        /// </summary>
         private string GetRelevantTextForAI(string extractedText, string originalFilename, int maxLength, out bool wasTextMeaningful)
         {
-            if (string.IsNullOrWhiteSpace(extractedText?.Trim()))
+            if (string.IsNullOrWhiteSpace(extractedText) || extractedText.Trim().Length < 10)
             {
                 wasTextMeaningful = false;
-                return $"Dit document heeft de bestandsnaam '{Path.GetFileNameWithoutExtension(originalFilename)}'. Er kon geen inhoud uit het document worden geëxtraheerd, of de inhoud was leeg. Analyseer alleen de bestandsnaam en probeer daaruit de essentie te halen.";
+                return $"Dit document heeft de bestandsnaam '{Path.GetFileNameWithoutExtension(originalFilename)}'. Er kon geen inhoud uit het document worden geëxtraheerd, of de inhoud was leeg/niet-betekenisvol. Analyseer alleen de bestandsnaam en probeer daaruit de essentie te halen.";
             }
             else
             {
                 wasTextMeaningful = true;
-                return extractedText.Substring(0, Math.Min(extractedText.Length, maxLength));
+                string cleanText = Regex.Replace(extractedText, @"\s+", " ").Trim();
+                return cleanText.Length <= maxLength ? cleanText : cleanText.Substring(0, maxLength);
             }
         }
     }

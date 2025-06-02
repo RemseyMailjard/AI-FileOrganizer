@@ -15,7 +15,7 @@ public class OnnxRobBERTProvider : IAiProvider, IDisposable
     private readonly BertTokenizer _tokenizer;
     private const int MaxSequenceLength = 128;
 
-    public OnnxRobBERTProvider(string modelPath, string vocabPath)
+    public OnnxRobBERTProvider(AI_FileOrganizer.Utils.ILogger _logger, string modelPath, string vocabPath)
     {
         if (!File.Exists(modelPath))
             throw new FileNotFoundException("ONNX-model niet gevonden.", modelPath);
@@ -99,16 +99,16 @@ public class OnnxRobBERTProvider : IAiProvider, IDisposable
     }
 
     // ---- MINI TEST ----
-    public static void MiniTest()
-    {
-        string modelPath = @"C:\Users\Remse\Desktop\onnx\model.onnx";
-        string vocabPath = @"C:\Users\Remse\Desktop\onnx\vocab.txt";
-        var provider = new OnnxRobBERTProvider(modelPath, vocabPath);
+    //public static void MiniTest()
+    //{
+    //    string modelPath = @"C:\Users\Remse\Desktop\onnx\model.onnx";
+    //    string vocabPath = @"C:\Users\Remse\Desktop\onnx\vocab.txt";
+    //    var provider = new OnnxRobBERTProvider(modelPath, vocabPath, "");
 
-        var testTekst = "De belastingaangifte moet vóór 1 mei ingediend zijn bij de Belastingdienst.";
-        var categorieen = new List<string> { "Financieel", "Gezondheid", "Reizen", "Werk", "Overig" };
+    //    var testTekst = "De belastingaangifte moet vóór 1 mei ingediend zijn bij de Belastingdienst.";
+    //    var categorieen = new List<string> { "Financieel", "Gezondheid", "Reizen", "Werk", "Overig" };
 
-        string predicted = provider.PredictCategory(testTekst, categorieen);
-        Console.WriteLine($"Predicted category: {predicted}");
-    }
+    //    string predicted = provider.PredictCategory(testTekst, categorieen);
+    //    Console.WriteLine($"Predicted category: {predicted}");
+    //}
 }
