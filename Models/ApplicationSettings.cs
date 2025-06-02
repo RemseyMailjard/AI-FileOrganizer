@@ -12,7 +12,7 @@ namespace AI_FileOrganizer.Models
         public static bool OrganizeFallbackCategoryIfNoMatch { get; set; } = true; // Voorbeeld: standaard aan
 
 
-        public static readonly string[] SupportedExtensions = { ".pdf", ".docx", ".txt", ".md" , ".pptx" };
+        public static readonly string[] SupportedExtensions = { ".pdf", ".docx", ".txt", ".md" , ".pptx", ".xlsx" };
 
         public static readonly Dictionary<string, string> FolderCategories = new Dictionary<string, string>
             {
