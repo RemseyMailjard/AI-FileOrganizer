@@ -36,8 +36,8 @@ WizardStyle=modern
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 
-LicenseFile="Installer\MIT License (MIT-licentie).txt"
-InfoBeforeFile="Installer\installatie-informatie.txt"
+LicenseFile="MIT License (MIT-licentie).txt"
+InfoBeforeFile="installatie-informatie.txt"
 
 [Languages]
 Name: "dutch"; MessagesFile: "compiler:Languages\Dutch.isl"
