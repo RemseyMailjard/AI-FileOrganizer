@@ -1,0 +1,13 @@
+INSERT INTO [dbo].[DBZ_Citizens] (CitizenID, Name, Role, PowerLevel) VALUES
+(10, 'Gohan', 'Saiyan Warrior', 8000),
+(11, 'Tien Shinhan', 'Martial Artist', 2000),
+(12, 'Yamcha', 'Martial Artist', 1500),
+(13, 'Chichi', 'Goku''s Wife', 100),
+(14, 'Master Roshi', 'Martial Arts Master', 400),
+(15, 'King Kai', 'North Kai', 3500),
+(16, 'Beerus', 'God of Destruction', 1000000), -- Significant jump in power, relevant for later sagas
+(17, 'Whis', 'Angel Attendant', 1500000),     -- Even higher
+(18, 'Zeno', 'Omni-King', NULL),            -- Power level is irrelevant/unfathomable for Zeno
+(19, 'Dende', 'Guardian of Earth', 500),
+(20, 'Videl', 'Martial Artist / Gohan''s Wife', 150),
+(21, 'Broly', 'Legendary Super Saiyan', 950000); -- Another very high power level character
