@@ -1,3 +1,12 @@
+on:
+  push:
+    branches:
+      - main  # Of de naam van je hoofdtak, bijv. master
+  pull_request:
+    branches:
+      - main  # Of de naam van je hoofdtak, bijv. master
+  workflow_dispatch: # Hiermee kun je de workflow handmatig starten
+
 jobs:
   build:
     runs-on: windows-latest
