@@ -307,6 +307,7 @@
     <Compile Include="Services\OpenAiProvider.cs" />
     <Compile Include="Services\PdfTextExtractor.cs" />
     <Compile Include="Services\PlainTextExtractor.cs" />
+    <Compile Include="Services\PptxTextExtractor.cs" />
     <Compile Include="Services\TextExtractionService.cs" />
     <Compile Include="Utils\BatchOrExeRunner.cs" />
     <Compile Include="Utils\FileLogger.cs" />

@@ -20,12 +20,20 @@ namespace AI_FileOrganizer.Services
         private const string DEFAULT_FALLBACK_CATEGORY = "Overig";
         public long LastCallSimulatedTokensUsed { get; private set; }
 
-        // AI-parameters
+        // AI-parameters voor hoofdcategorie
         private const int CATEGORY_MAX_TOKENS = 50;
         private const float CATEGORY_TEMPERATURE = 0.0f;
 
+        // AI-parameters voor bestandsnaam (voorheen subfolder)
         private const int EFFECTIVE_FILENAME_MAX_TOKENS = 20;
         private const float EFFECTIVE_FILENAME_TEMPERATURE = 0.2f;
+
+        // AI-parameters voor gedetailleerde submappen (nieuw)
+        private const int DETAILED_SUBFOLDER_TYPE_MAX_TOKENS = 15; // Voor document type identificatie
+        private const float DETAILED_SUBFOLDER_TYPE_TEMPERATURE = 0.1f;
+        private const int DETAILED_SUBFOLDER_NAME_MAX_TOKENS = 25; // Voor specifieke submapnaam
+        private const float DETAILED_SUBFOLDER_NAME_TEMPERATURE = 0.3f;
+
 
         public AiClassificationService(ILogger logger)
         {
@@ -42,7 +50,7 @@ namespace AI_FileOrganizer.Services
             CancellationToken cancellationToken,
             Dictionary<string, float[]> categoryEmbeddings = null)
         {
-            this.LastCallSimulatedTokensUsed = 0;
+            this.LastCallSimulatedTokensUsed = 0; // Reset voor deze hoofdtaak
 
             if (aiProvider is OnnxRobBERTProvider robbertProvider && categoryEmbeddings != null)
             {
@@ -79,9 +87,9 @@ namespace AI_FileOrganizer.Services
                         continue;
                     }
                     float[] catEmbedding = categoryEmbeddings[cat];
-                    if (catEmbedding == null || catEmbedding.Length != docEmbedding.Length)
+                    if (catEmbedding == null || docEmbedding == null || catEmbedding.Length != docEmbedding.Length)
                     {
-                        _logger.Log($"WAARSCHUWING: Ongeldige of niet-overeenkomende embedding voor categorie '{cat}'. Overgeslagen.");
+                        _logger.Log($"WAARSCHUWING: Ongeldige of niet-overeenkomende embedding voor categorie '{cat}'. Embedding lengtes: Cat={catEmbedding?.Length}, Doc={docEmbedding?.Length}. Overgeslagen.");
                         continue;
                     }
                     double sim = CosineSimilarity(docEmbedding, catEmbedding);
@@ -95,7 +103,7 @@ namespace AI_FileOrganizer.Services
                 return bestCategory ?? DEFAULT_FALLBACK_CATEGORY;
             }
 
-            _logger.Log("INFO: Prompt-based classificatie (GPT/Gemini/OpenAI) wordt gebruikt.");
+            _logger.Log("INFO: Prompt-based classificatie (GPT/Gemini/OpenAI) wordt gebruikt voor categorie.");
             if (string.IsNullOrWhiteSpace(textToClassify) && string.IsNullOrWhiteSpace(originalFilename))
             {
                 _logger.Log("WAARSCHUWING: Geen tekst en geen bestandsnaam om te classificeren. Retourneer fallback categorie.");
@@ -196,7 +204,7 @@ Antwoord: ";
                 );
                 if (chosenCategory != null)
                 {
-                    this.LastCallSimulatedTokensUsed = (prompt.Length / 4) + (chosenCategory.Length / 4);
+                    this.LastCallSimulatedTokensUsed = CalculateSimulatedTokens(prompt, chosenCategory);
                 }
             }
             catch (OperationCanceledException)
@@ -249,7 +257,190 @@ Antwoord: ";
             return DEFAULT_FALLBACK_CATEGORY;
         }
 
-        public Task<string> SuggestSubfolderNameAsync(
+        /// <summary>
+        /// Stelt een gedetailleerde submap voor gebaseerd op een tweestaps AI-analyse.
+        /// Retourneert een relatief pad (bijv. "Facturen\Verkoopfacturen Februari 2024") of null.
+        /// </summary>
+        public async Task<string> SuggestDetailedSubfolderAsync(
+            string textToAnalyze,
+            string originalFilename,
+            string determinedCategory, // De al bepaalde hoofdcategorie
+            IAiProvider aiProvider,
+            string modelName,
+            CancellationToken cancellationToken)
+        {
+            // Reset token count voor deze specifieke sub-taak
+            // De totale tokens worden in de FileOrganizerService geaccumuleerd
+            long currentTaskTokens = 0;
+
+            if (aiProvider == null || string.IsNullOrWhiteSpace(modelName))
+            {
+                _logger.Log("FOUT: AI Provider of modelnaam ongeldig voor gedetailleerde submap suggestie.");
+                this.LastCallSimulatedTokensUsed = 0; // Zorg dat het gereset is als we hieruit stappen
+                return null;
+            }
+
+            _logger.Log($"INFO: Start gedetailleerde submap suggestie voor categorie '{determinedCategory}'.");
+
+            bool wasTextMeaningful;
+            string aiInputText = GetRelevantTextForAI(textToAnalyze, originalFilename, 2000, out wasTextMeaningful); // Iets meer tekst voor context
+
+            string textContext = wasTextMeaningful ?
+                $@"<tekst_inhoud>
+{aiInputText}
+</tekst_inhoud>" :
+                $@"<document_zonder_inhoud>
+{aiInputText}
+</document_zonder_inhoud>";
+
+            string documentType = null;
+
+            // --- Stap 1: Identificeer het specifieke documenttype binnen de hoofdcategorie ---
+            if (determinedCategory.Equals("Financiën", StringComparison.OrdinalIgnoreCase) ||
+                determinedCategory.Equals("Belastingen", StringComparison.OrdinalIgnoreCase) ||
+                determinedCategory.Equals("Verzekeringen", StringComparison.OrdinalIgnoreCase)) // Voeg meer categorieën toe waarvoor je dit wilt
+            {
+                string documentTypePrompt = $@"
+Analyseer het document binnen de categorie '{determinedCategory}'.
+Identificeer het specifieke type document. Mogelijke types voor '{determinedCategory}' zijn bijvoorbeeld:
+- Voor Financiën: Factuur, Bankafschrift, Offerte, Leningsovereenkomst, Jaaropgave, Onkostennota, Salarisspecificatie, Beleggingsoverzicht
+- Voor Belastingen: Belastingaangifte, Belastingaanslag, Voorlopige aanslag, Toeslagbeschikking
+- Voor Verzekeringen: Polisblad, Schadeclaim, Verzekeringsvoorwaarden, Opzegging
+- Anders (geef een korte, specifieke beschrijving van maximaal 3 woorden als het niet past)
+
+Documentinformatie:
+<bestandsnaam>
+{originalFilename}
+</bestandsnaam>
+{textContext}
+
+Antwoord (alleen het type, bijv. 'Factuur' of 'Belastingaangifte'): ";
+
+                try
+                {
+                    _logger.Log($"DEBUG: Prompt voor document type (cat: {determinedCategory}): {documentTypePrompt.Substring(0, Math.Min(200, documentTypePrompt.Length))}...");
+                    documentType = await aiProvider.GetTextCompletionAsync(
+                        documentTypePrompt, modelName, DETAILED_SUBFOLDER_TYPE_MAX_TOKENS, DETAILED_SUBFOLDER_TYPE_TEMPERATURE, cancellationToken);
+
+                    if (documentType != null) currentTaskTokens += CalculateSimulatedTokens(documentTypePrompt, documentType);
+
+                    documentType = documentType?.Trim('\'', '\"', '.', '-').Trim();
+                    _logger.Log($"DEBUG: AI document type binnen '{determinedCategory}': '{documentType}'");
+                }
+                catch (Exception ex)
+                {
+                    _logger.Log($"FOUT bij AI-aanroep voor document type (cat: {determinedCategory}): {ex.Message}");
+                    this.LastCallSimulatedTokensUsed = currentTaskTokens;
+                    return null;
+                }
+            }
+            else
+            {
+                _logger.Log($"INFO: Geen specifieke document type logica geïmplementeerd voor categorie '{determinedCategory}'.");
+                this.LastCallSimulatedTokensUsed = 0; // Geen AI call gedaan voor deze stap
+                return null;
+            }
+
+            if (string.IsNullOrWhiteSpace(documentType) || documentType.Equals("Anders", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.Log($"INFO: Geen specifiek documenttype geïdentificeerd of 'Anders'. Geen verdere submap generatie.");
+                this.LastCallSimulatedTokensUsed = currentTaskTokens;
+                return null;
+            }
+
+            // --- Stap 2: Genereer een specifieke submapnaam gebaseerd op het documenttype ---
+            string suggestedSubfolderNamePart = null;
+            string subfolderPromptForSpecificType = ""; // Placeholder
+
+            if (determinedCategory.Equals("Financiën", StringComparison.OrdinalIgnoreCase) &&
+                documentType.ToLowerInvariant().Contains("factuur")) // Ruime check op "factuur"
+            {
+                subfolderPromptForSpecificType = $@"
+Het document is een '{documentType}' (categorie: {determinedCategory}). 
+Stel een submapnaam voor van maximaal 3-4 woorden die deze factuur goed beschrijft.
+Focus op:
+1. Type factuur (bijv. Verkoop, Inkoop, Credit) - als dit niet al in '{documentType}' zit.
+2. Maand en Jaar (bijv. Februari 2024, Q1 2023).
+3. Eventueel de naam van de klant/leverancier als die prominent en kort is.
+
+Voorbeelden:
+- Verkoop Februari 2024
+- Inkoop BedrijfX Maart 2023
+- Creditnota's Q2
+
+Documentinformatie:
+<bestandsnaam>
+{originalFilename}
+</bestandsnaam>
+{textContext}
+
+Antwoord (alleen de beschrijvende submapnaam, bijv. 'Verkoop Maart 2024' of 'KlantY Januari'): ";
+            }
+            // VOEG HIER MEER `ELSE IF` BLOKKEN TOE voor andere combinaties van `determinedCategory` en `documentType`
+            // Voorbeeld voor Belastingaangifte:
+            else if (determinedCategory.Equals("Belastingen", StringComparison.OrdinalIgnoreCase) &&
+                     documentType.ToLowerInvariant().Contains("aangifte"))
+            {
+                subfolderPromptForSpecificType = $@"
+Het document is een '{documentType}' (categorie: {determinedCategory}). 
+Stel een submapnaam voor van maximaal 2-3 woorden. Focus op het jaartal.
+Voorbeeld:
+- 2023
+- IB 2022
+
+Documentinformatie:
+<bestandsnaam>
+{originalFilename}
+</bestandsnaam>
+{textContext}
+
+Antwoord (alleen de submapnaam, bijv. '2023'): ";
+            }
+            // Einde voorbeeld
+
+            if (!string.IsNullOrWhiteSpace(subfolderPromptForSpecificType))
+            {
+                try
+                {
+                    _logger.Log($"DEBUG: Prompt voor specifieke submap (type: {documentType}): {subfolderPromptForSpecificType.Substring(0, Math.Min(200, subfolderPromptForSpecificType.Length))}...");
+                    suggestedSubfolderNamePart = await aiProvider.GetTextCompletionAsync(
+                        subfolderPromptForSpecificType, modelName, DETAILED_SUBFOLDER_NAME_MAX_TOKENS, DETAILED_SUBFOLDER_NAME_TEMPERATURE, cancellationToken);
+
+                    if (suggestedSubfolderNamePart != null) currentTaskTokens += CalculateSimulatedTokens(subfolderPromptForSpecificType, suggestedSubfolderNamePart);
+
+                    suggestedSubfolderNamePart = suggestedSubfolderNamePart?.Trim('\'', '\"', '.', '-').Trim();
+                    _logger.Log($"DEBUG: AI specifieke submapnaam deel: '{suggestedSubfolderNamePart}'");
+
+                    if (!string.IsNullOrWhiteSpace(suggestedSubfolderNamePart))
+                    {
+                        // Construeer het volledige relatieve subpad
+                        // Bijvoorbeeld: "Facturen\Verkoop Februari 2024"
+                        // Of: "Belastingaangiften\2023"
+                        string basePathForSubfolder = PluralizeDocumentType(documentType); // Maak een helper hiervoor
+                        string finalDetailedPath = Path.Combine(basePathForSubfolder, FileUtils.SanitizeFolderOrFileName(suggestedSubfolderNamePart));
+
+                        this.LastCallSimulatedTokensUsed = currentTaskTokens;
+                        _logger.Log($"INFO: Gedetailleerd subpad voorgesteld: '{finalDetailedPath}'");
+                        return finalDetailedPath;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Log($"FOUT bij AI-aanroep voor specifieke submap (type: {documentType}): {ex.Message}");
+                }
+            }
+            else
+            {
+                _logger.Log($"INFO: Geen specifieke submap prompt logica voor document type '{documentType}' in categorie '{determinedCategory}'.");
+            }
+
+            this.LastCallSimulatedTokensUsed = currentTaskTokens; // Update tokens ook als we hier eindigen
+            _logger.Log($"INFO: Kon geen gedetailleerde submap genereren voor '{originalFilename}'.");
+            return null;
+        }
+
+
+        public Task<string> SuggestSubfolderNameAsync( // Deze blijft bestaan voor compatibiliteit, maar wordt niet meer gebruikt voor AI-submappen
             string textToAnalyze,
             string originalFilename,
             IAiProvider aiProvider,
@@ -257,7 +448,7 @@ Antwoord: ";
             CancellationToken cancellationToken)
         {
             this.LastCallSimulatedTokensUsed = 0;
-            _logger.Log($"INFO: AI-suggestie voor submapnaam voor '{originalFilename}' wordt overgeslagen zoals geconfigureerd.");
+            _logger.Log($"INFO: Standaard AI-suggestie voor submapnaam voor '{originalFilename}' wordt overgeslagen (gebruik SuggestDetailedSubfolderAsync).");
             return Task.FromResult<string>(null);
         }
 
@@ -268,7 +459,7 @@ Antwoord: ";
             string modelName,
             CancellationToken cancellationToken)
         {
-            this.LastCallSimulatedTokensUsed = 0;
+            this.LastCallSimulatedTokensUsed = 0; // Reset voor deze hoofdtaak
             string originalFilenameWithoutExtension = Path.GetFileNameWithoutExtension(originalFilename);
 
             if (aiProvider == null)
@@ -341,6 +532,7 @@ Antwoord: Huwelijksakte Piet en Nel
 Antwoord: ";
 
             string suggestedName = null;
+            long currentTaskTokens = 0;
 
             try
             {
@@ -353,7 +545,7 @@ Antwoord: ";
                 );
                 if (suggestedName != null)
                 {
-                    this.LastCallSimulatedTokensUsed = (prompt.Length / 4) + (suggestedName.Length / 4);
+                    currentTaskTokens = CalculateSimulatedTokens(prompt, suggestedName);
                 }
             }
             catch (OperationCanceledException)
@@ -364,6 +556,7 @@ Antwoord: ";
             catch (Exception ex)
             {
                 _logger.Log($"FOUT: Fout bij bestandsnaam AI-aanroep voor '{originalFilename}': {ex.Message}. Gebruik originele naam.");
+                this.LastCallSimulatedTokensUsed = currentTaskTokens;
                 return originalFilenameWithoutExtension;
             }
 
@@ -387,7 +580,6 @@ Antwoord: ";
             if (needsRetry)
             {
                 _logger.Log($"INFO: Eerste AI-suggestie voor bestandsnaam '{suggestedName?.Trim() ?? "[LEEG]"}' voor '{originalFilename}' was onbruikbaar. Start retry...");
-                long previousTokens = this.LastCallSimulatedTokensUsed;
 
                 var retryPrompt = prompt + "\n\nDe vorige suggestie was niet bruikbaar. Geef nu een CONCRETE, KORTE EN BESCHRIJVENDE bestandsnaam (zonder extensie). De output moet DIRECT de naam zijn, niet alleen een datum.";
                 try
@@ -402,7 +594,7 @@ Antwoord: ";
 
                     if (suggestedName != null)
                     {
-                        this.LastCallSimulatedTokensUsed = previousTokens + (retryPrompt.Length / 4) + (suggestedName.Length / 4);
+                        currentTaskTokens += CalculateSimulatedTokens(retryPrompt, suggestedName); // Accumuleer tokens van retry
                     }
 
                     _logger.Log($"DEBUG: Ruwe AI-antwoord voor bestandsnaam (retry): '{suggestedName?.Replace("\n", "\\n")}'.");
@@ -421,6 +613,8 @@ Antwoord: ";
                     _logger.Log($"INFO: Gebruik originele bestandsnaam '{cleanedName}' na mislukte retry.");
                 }
             }
+            this.LastCallSimulatedTokensUsed = currentTaskTokens;
+
 
             if (string.IsNullOrWhiteSpace(cleanedName) ||
                 cleanedName.Length < 3 ||
@@ -432,23 +626,23 @@ Antwoord: ";
                 cleanedName = originalFilenameWithoutExtension;
             }
 
-            int maxFilenameLength = 100;
+            int maxFilenameLength = 100; // Haal dit idealiter uit ApplicationSettings
             if (cleanedName.Length > maxFilenameLength)
             {
                 cleanedName = cleanedName.Substring(0, maxFilenameLength);
                 int lastSpace = cleanedName.LastIndexOf(' ');
-                if (lastSpace > maxFilenameLength / 2 && lastSpace > 0)
+                if (lastSpace > maxFilenameLength / 2 && lastSpace > 0) // Alleen als het niet te kort wordt
                 {
                     cleanedName = cleanedName.Substring(0, lastSpace);
                 }
                 _logger.Log($"INFO: AI-gegenereerde bestandsnaam voor '{originalFilename}' afgekort naar '{cleanedName}' wegens lengtebeperking.");
             }
 
-            if (!cleanedName.Equals(originalFilenameWithoutExtension, StringComparison.Ordinal))
+            if (!cleanedName.Equals(originalFilenameWithoutExtension, StringComparison.Ordinal)) // Gebruik Ordinal voor exacte vergelijking
             {
                 return CultureInfo.CurrentCulture.TextInfo.ToTitleCase(cleanedName.ToLowerInvariant());
             }
-            return cleanedName;
+            return cleanedName; // Retourneer met originele casing als het niet veranderd is
         }
 
         public static double CosineSimilarity(float[] v1, float[] v2)
@@ -474,7 +668,7 @@ Antwoord: ";
 
         private string GetRelevantTextForAI(string extractedText, string originalFilename, int maxLength, out bool wasTextMeaningful)
         {
-            if (string.IsNullOrWhiteSpace(extractedText) || extractedText.Trim().Length < 10)
+            if (string.IsNullOrWhiteSpace(extractedText) || extractedText.Trim().Length < 10) // Beschouw zeer korte tekst als niet-betekenisvol
             {
                 wasTextMeaningful = false;
                 return $"Dit document heeft de bestandsnaam '{Path.GetFileNameWithoutExtension(originalFilename)}'. Er kon geen inhoud uit het document worden geëxtraheerd, of de inhoud was leeg/niet-betekenisvol. Analyseer alleen de bestandsnaam en probeer daaruit de essentie te halen.";
@@ -482,9 +676,46 @@ Antwoord: ";
             else
             {
                 wasTextMeaningful = true;
-                string cleanText = Regex.Replace(extractedText, @"\s+", " ").Trim();
+                string cleanText = Regex.Replace(extractedText, @"\s+", " ").Trim(); // Normaliseer witruimte
                 return cleanText.Length <= maxLength ? cleanText : cleanText.Substring(0, maxLength);
             }
+        }
+
+        private long CalculateSimulatedTokens(string prompt, string completion)
+        {
+            if (prompt == null || completion == null) return 0;
+            // Ruwe schatting: 1 token per ~4 karakters. Dit is zeer afhankelijk van de taal en het model.
+            // Voor een nauwkeurigere telling zou je een tokenizer specifiek voor het gebruikte model moeten gebruiken.
+            return (prompt.Length / 4) + (completion.Length / 4);
+        }
+
+        // Helper voor pluralisatie (zeer basaal, uitbreiden indien nodig)
+        private string PluralizeDocumentType(string documentType)
+        {
+            if (string.IsNullOrWhiteSpace(documentType)) return "Overige Documenten";
+
+            // Eenvoudige regels, niet uitputtend
+            if (documentType.EndsWith("f", StringComparison.OrdinalIgnoreCase)) // bijv. Brief -> Brieven
+                return documentType.Substring(0, documentType.Length -1) + "ven";
+            if (documentType.EndsWith("s", StringComparison.OrdinalIgnoreCase) ||
+                documentType.EndsWith("x", StringComparison.OrdinalIgnoreCase) ||
+                documentType.EndsWith("z", StringComparison.OrdinalIgnoreCase) ||
+                documentType.EndsWith("ch", StringComparison.OrdinalIgnoreCase) ||
+                documentType.EndsWith("sh", StringComparison.OrdinalIgnoreCase))
+                return documentType + "en"; // Polis -> Polissen
+            if (documentType.EndsWith("y", StringComparison.OrdinalIgnoreCase) && documentType.Length > 1 && !"aeiou".Contains(documentType.ToLowerInvariant()[documentType.Length-2])) // family -> families
+                return documentType.Substring(0, documentType.Length -1) + "ies";
+
+            // Algemene regel: voeg 'en' toe, of 's' als het eindigt op een klinker (behalve 'e')
+            char lastChar = documentType.ToLowerInvariant().Last();
+            if ("aoui".Contains(lastChar))
+                return documentType + "s"; // Auto -> Auto's (apostrof S is lastiger, simpel 's')
+
+            // Standaard is 'en' toevoegen voor veel Nederlandse woorden
+            if (documentType.EndsWith("e", StringComparison.OrdinalIgnoreCase))
+                return documentType + "n"; // Offerte -> Offerten
+
+            return documentType + "en"; // Factuur -> Facturen
         }
     }
 }

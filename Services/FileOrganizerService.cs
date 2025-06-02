@@ -16,8 +16,8 @@ namespace AI_FileOrganizer.Services
     {
         private readonly ILogger _logger;
         private readonly AiClassificationService _aiService;
-        private readonly TextExtractionService _textExtractionService; // Veronderstelt dat deze klasse bestaat
-        private readonly CredentialStorageService _credentialStorageService; // Veronderstelt dat deze klasse bestaat
+        private readonly TextExtractionService _textExtractionService;
+        private readonly CredentialStorageService _credentialStorageService;
         private readonly HttpClient _httpClient;
 
         public event Action<int, int> ProgressChanged;
@@ -32,8 +32,8 @@ namespace AI_FileOrganizer.Services
         public FileOrganizerService(
             ILogger logger,
             AiClassificationService aiService,
-            TextExtractionService textExtractionService, // Zorg dat deze klasse bestaat en correct geïnjecteerd wordt
-            CredentialStorageService credentialStorageService, // Zorg dat deze klasse bestaat
+            TextExtractionService textExtractionService,
+            CredentialStorageService credentialStorageService,
             HttpClient httpClient)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -56,7 +56,6 @@ namespace AI_FileOrganizer.Services
             _totalTokensUsed = 0;
             if (TokensUsedUpdated != null) TokensUsedUpdated.Invoke(_totalTokensUsed);
 
-
             IAiProvider currentAiProvider = GetAiProvider(apiKey, providerName, azureEndpoint, modelName);
             if (currentAiProvider == null)
             {
@@ -64,11 +63,10 @@ namespace AI_FileOrganizer.Services
                 return;
             }
 
-            if (providerName != "Lokaal ONNX-model" && !string.IsNullOrEmpty(apiKey)) // Alleen opslaan als er een API key is
+            if (providerName != "Lokaal ONNX-model" && !string.IsNullOrEmpty(apiKey))
             {
                 _credentialStorageService.SaveApiKey(providerName, apiKey, azureEndpoint);
             }
-
 
             if (!Directory.Exists(destinationBasePath))
             {
@@ -97,10 +95,8 @@ namespace AI_FileOrganizer.Services
                 return;
             }
 
-
-            int processedCount = 0, movedFiles = 0, filesWithSubfolders = 0, renamedFiles = 0;
+            int processedCount = 0, movedFiles = 0, filesWithDetailedSubfolders = 0, renamedFiles = 0; // Naam aangepast
             if (ProgressChanged != null) ProgressChanged.Invoke(0, allFiles.Count);
-
 
             foreach (string filePath in allFiles)
             {
@@ -109,7 +105,6 @@ namespace AI_FileOrganizer.Services
                     _logger.Log("INFO: Organisatieproces geannuleerd door gebruiker.");
                     cancellationToken.ThrowIfCancellationRequested();
                 }
-
 
                 FileInfo fileInfo = new FileInfo(filePath);
                 processedCount++;
@@ -120,7 +115,7 @@ namespace AI_FileOrganizer.Services
                     var resultTuple = await ProcessAndMoveSingleFileInternalAsync(
                         filePath,
                         fileInfo,
-                        sourcePath, // sourcePath wordt hier meegegeven
+                        sourcePath,
                         destinationBasePath,
                         currentAiProvider,
                         modelName,
@@ -130,7 +125,7 @@ namespace AI_FileOrganizer.Services
                     if (resultTuple.processed)
                     {
                         if (resultTuple.moved) movedFiles++;
-                        if (resultTuple.hadSubfolder) filesWithSubfolders++;
+                        if (resultTuple.hadSubfolder) filesWithDetailedSubfolders++; // Gebruik de correcte boolean
                         if (resultTuple.renamed) renamedFiles++;
                     }
                 }
@@ -152,6 +147,7 @@ namespace AI_FileOrganizer.Services
             _logger.Log($"\n--- SAMENVATTING ---");
             _logger.Log($"Totaal aantal bestanden bekeken (met ondersteunde extensie): {processedCount}");
             _logger.Log($"Aantal bestanden succesvol verplaatst: {movedFiles}");
+            _logger.Log($"Aantal bestanden geplaatst in een AI-gegenereerde gedetailleerde submap: {filesWithDetailedSubfolders}"); // Aangepaste logging
             _logger.Log($"Aantal bestanden hernoemd: {renamedFiles}");
             _logger.Log($"Totaal gesimuleerde tokens gebruikt: {_totalTokensUsed}");
             _logger.Log($"--- EINDE SAMENVATTING ---");
@@ -163,7 +159,6 @@ namespace AI_FileOrganizer.Services
             _totalTokensUsed = 0;
             if (TokensUsedUpdated != null) TokensUsedUpdated.Invoke(_totalTokensUsed);
 
-
             IAiProvider currentAiProvider = GetAiProvider(apiKey, providerName, azureEndpoint, modelName);
             if (currentAiProvider == null) return;
 
@@ -171,7 +166,6 @@ namespace AI_FileOrganizer.Services
             {
                 _credentialStorageService.SaveApiKey(providerName, apiKey, azureEndpoint);
             }
-
 
             if (!File.Exists(filePath))
             {
@@ -184,9 +178,13 @@ namespace AI_FileOrganizer.Services
 
             try
             {
+                // Gebruik de synchrone ExtractText methode als die in TextExtractionService bestaat,
+                // of maak TextExtractionService.ExtractTextAsync en await die hier.
                 string extractedText = _textExtractionService.ExtractText(filePath);
                 _logger.Log($"INFO: Geëxtraheerde tekst (eerste 100 karakters): '{(extractedText?.Length > 100 ? extractedText.Substring(0, 100) : extractedText)}'...");
-                if (string.IsNullOrWhiteSpace(extractedText)) extractedText = fileInfo.Name;
+                if (string.IsNullOrWhiteSpace(extractedText)) extractedText = fileInfo.Name; // Fallback op bestandsnaam
+
+                // Gebruik ApplicationSettings voor MaxTextLengthForLlm
                 if (extractedText.Length > ApplicationSettings.MaxTextLengthForLlm)
                     extractedText = extractedText.Substring(0, ApplicationSettings.MaxTextLengthForLlm);
 
@@ -201,7 +199,6 @@ namespace AI_FileOrganizer.Services
                 _totalTokensUsed += _aiService.LastCallSimulatedTokensUsed;
                 if (TokensUsedUpdated != null) TokensUsedUpdated.Invoke(_totalTokensUsed);
 
-
                 if (RequestRenameFile == null)
                 {
                     _logger.Log("FOUT: UI callback voor hernoemen is niet ingesteld. Kan bestand niet interactief hernoemen.");
@@ -209,7 +206,6 @@ namespace AI_FileOrganizer.Services
                 }
 
                 var (dialogResult, returnedFileName, skipFile) = await RequestRenameFile.Invoke(fileInfo.Name, suggestedNewBaseName + fileInfo.Extension).ConfigureAwait(false);
-
 
                 if (dialogResult == DialogResult.OK)
                 {
@@ -237,6 +233,7 @@ namespace AI_FileOrganizer.Services
 
                         string baseNameWithoutExt = Path.GetFileNameWithoutExtension(newFileNameSanitized);
                         string extension = Path.GetExtension(newFileNameSanitized);
+                        // Gebruik ApplicationSettings voor MaxFilenameLength
                         if (baseNameWithoutExt.Length > ApplicationSettings.MaxFilenameLength)
                         {
                             baseNameWithoutExt = baseNameWithoutExt.Substring(0, ApplicationSettings.MaxFilenameLength);
@@ -303,7 +300,7 @@ namespace AI_FileOrganizer.Services
         private async Task<(bool processed, bool moved, bool hadSubfolder, bool renamed)> ProcessAndMoveSingleFileInternalAsync(
             string filePath,
             FileInfo fileInfo,
-            string currentSourcePath, // Hernoemd van sourcePath om verwarring te voorkomen met de parameter van de parent
+            string currentSourcePath,
             string destinationBasePath,
             IAiProvider currentAiProvider,
             string modelName,
@@ -335,10 +332,11 @@ namespace AI_FileOrganizer.Services
             _totalTokensUsed += _aiService.LastCallSimulatedTokensUsed;
             if (TokensUsedUpdated != null) TokensUsedUpdated.Invoke(_totalTokensUsed);
 
-
-            if (string.IsNullOrWhiteSpace(llmCategoryChoice) || llmCategoryChoice == "Overig")
+            // Controleer of de "Overig" categorie verwerkt moet worden, gebaseerd op ApplicationSettings
+            if (string.IsNullOrWhiteSpace(llmCategoryChoice) ||
+                (llmCategoryChoice.Equals("Overig", StringComparison.OrdinalIgnoreCase) && !ApplicationSettings.OrganizeFallbackCategoryIfNoMatch))
             {
-                _logger.Log($"WAARSCHUWING: Kon '{fileInfo.Name}' niet classificeren of viel in 'Overig'. Bestand wordt niet verplaatst.");
+                _logger.Log($"WAARSCHUWING: Kon '{fileInfo.Name}' niet classificeren of viel in 'Overig' (en organiseren van fallback is uitgeschakeld). Bestand wordt niet verplaatst.");
                 return (false, false, false, false);
             }
 
@@ -346,38 +344,70 @@ namespace AI_FileOrganizer.Services
             string targetCategoryFolderName;
             if (!ApplicationSettings.FolderCategories.TryGetValue(llmCategoryChoice, out targetCategoryFolderName))
             {
-                targetCategoryFolderName = ApplicationSettings.FallbackFolderName;
+                // Als llmCategoryChoice "Overig" is (en OrganizeFallbackCategoryIfNoMatch is true), gebruik de FallbackFolderName
+                if (llmCategoryChoice.Equals("Overig", StringComparison.OrdinalIgnoreCase))
+                {
+                    targetCategoryFolderName = ApplicationSettings.FallbackFolderName;
+                }
+                else // Dit zou niet mogen gebeuren als de categorie uit de lijst komt, maar als veiligheidsfallback
+                {
+                    _logger.Log($"FOUT: Categorie '{llmCategoryChoice}' onbekend en niet 'Overig'. Gebruik algemene fallback map. Bestand '{fileInfo.Name}'.");
+                    targetCategoryFolderName = ApplicationSettings.FallbackFolderName;
+                }
             }
             string targetCategoryFolderPath = Path.Combine(destinationBasePath, targetCategoryFolderName);
             Directory.CreateDirectory(targetCategoryFolderPath);
 
-            // 4. Submap suggereren - DEZE STAP WORDT OVERGESLAGEN
-            bool hadSubfolder = false;
+            // 4. NIEUW: Gedetailleerde submap suggereren
+            string detailedSubfolderRelativePath = null;
+            bool hadDetailedSubfolder = false; // Hernoemd voor duidelijkheid
 
-            // 5. Bepaal doelmap (geen AI submap, direct in categorie of behoud relatief pad)
-            // *** HIER IS DE AANGEPASTE LOGICA ***
-            string finalTargetDirectory;
-            string originalFileDirectory = Path.GetDirectoryName(filePath);
-            string normalizedSourcePath = currentSourcePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            string relativePath = "";
-
-            if (!originalFileDirectory.Equals(normalizedSourcePath, StringComparison.OrdinalIgnoreCase))
+            if (ApplicationSettings.UseDetailedSubfolders) // Check een nieuwe setting
             {
-                // Bestand staat in een submap van currentSourcePath
-                relativePath = FileUtils.GetRelativePath(currentSourcePath, originalFileDirectory);
+                detailedSubfolderRelativePath = await _aiService.SuggestDetailedSubfolderAsync(
+                    extractedText,
+                    fileInfo.Name,
+                    llmCategoryChoice, // Geef de bepaalde categorie mee
+                    currentAiProvider,
+                    modelName,
+                    cancellationToken
+                ).ConfigureAwait(false);
+                _totalTokensUsed += _aiService.LastCallSimulatedTokensUsed;
+                if (TokensUsedUpdated != null) TokensUsedUpdated.Invoke(_totalTokensUsed);
+
+                hadDetailedSubfolder = !string.IsNullOrWhiteSpace(detailedSubfolderRelativePath);
             }
 
-            if (string.IsNullOrEmpty(relativePath))
+
+            // 5. Bepaal doelmap
+            string finalTargetDirectory;
+            if (hadDetailedSubfolder)
             {
-                finalTargetDirectory = targetCategoryFolderPath; // Plaats direct in de hoofdcategoriemap
+                finalTargetDirectory = Path.Combine(targetCategoryFolderPath, detailedSubfolderRelativePath);
+                _logger.Log($"INFO: AI suggereerde gedetailleerd subpad: '{detailedSubfolderRelativePath}' binnen categorie '{targetCategoryFolderName}'.");
             }
             else
             {
-                finalTargetDirectory = Path.Combine(targetCategoryFolderPath, relativePath);
-            }
+                _logger.Log($"INFO: Geen gedetailleerde submap gesuggereerd. Gebruik standaard relatief pad (indien van toepassing).");
+                string originalFileDirectory = Path.GetDirectoryName(filePath);
+                string normalizedSourcePath = currentSourcePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string relativePathToPreserve = "";
 
+                if (!originalFileDirectory.Equals(normalizedSourcePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    relativePathToPreserve = FileUtils.GetRelativePath(currentSourcePath, originalFileDirectory);
+                }
+
+                if (string.IsNullOrEmpty(relativePathToPreserve))
+                {
+                    finalTargetDirectory = targetCategoryFolderPath;
+                }
+                else
+                {
+                    finalTargetDirectory = Path.Combine(targetCategoryFolderPath, relativePathToPreserve);
+                }
+            }
             Directory.CreateDirectory(finalTargetDirectory);
-            // *** EINDE AANGEPASTE LOGICA ***
 
             // 6. Bestandsnaam AI-voorstel
             string newFileName = fileInfo.Name;
@@ -395,7 +425,6 @@ namespace AI_FileOrganizer.Services
                 ).ConfigureAwait(false);
                 _totalTokensUsed += _aiService.LastCallSimulatedTokensUsed;
                 if (TokensUsedUpdated != null) TokensUsedUpdated.Invoke(_totalTokensUsed);
-
 
                 if (RequestRenameFile == null)
                 {
@@ -484,7 +513,7 @@ namespace AI_FileOrganizer.Services
                 if (destinationFilePath.Equals(filePath, StringComparison.OrdinalIgnoreCase) && newFileName.Equals(fileInfo.Name, StringComparison.OrdinalIgnoreCase))
                 {
                     _logger.Log($"INFO: Bestand '{fileInfo.Name}' is al op de doel locatie en wordt niet hernoemd. Geen verplaatsing nodig.");
-                    return (true, false, false, false);
+                    return (true, false, hadDetailedSubfolder, wasRenamed);
                 }
 
                 string baseName = Path.GetFileNameWithoutExtension(newFileName);
@@ -513,16 +542,16 @@ namespace AI_FileOrganizer.Services
             if (destinationFilePath.Equals(filePath, StringComparison.OrdinalIgnoreCase))
             {
                 _logger.Log($"INFO: Doelpad voor '{fileInfo.Name}' is hetzelfde als bronpad. Geen verplaatsing nodig.");
-                return (true, false, hadSubfolder, wasRenamed);
+                return (true, false, hadDetailedSubfolder, wasRenamed);
             }
 
             try
             {
                 File.Move(filePath, destinationFilePath);
                 _logger.Log($"OK: '{fileInfo.Name}' verplaatst naar '{FileUtils.GetRelativePath(destinationBasePath, destinationFilePath)}'");
-                return (true, true, hadSubfolder, wasRenamed);
+                return (true, true, hadDetailedSubfolder, wasRenamed);
             }
-            catch (IOException ioEx) when ((ioEx.HResult & 0xFFFF) == 183)
+            catch (IOException ioEx) when ((ioEx.HResult & 0xFFFF) == 183) // ERROR_ALREADY_EXISTS
             {
                 _logger.Log($"FOUT: Kan '{fileInfo.Name}' niet verplaatsen naar '{Path.GetFileName(destinationFilePath)}'. Bestand bestaat al (race condition?): {ioEx.Message}");
                 return (false, false, false, false);
@@ -556,6 +585,7 @@ namespace AI_FileOrganizer.Services
                             _logger.Log("FOUT: Geen geldig ONNX-model geselecteerd of pad is incorrect. Kies eerst een ONNX-modelbestand.");
                             return null;
                         }
+                        // Zorg dat OnnxRobBERTProvider de logger correct accepteert en gebruikt
                         return new OnnxRobBERTProvider(_logger, SelectedOnnxModelPath, SelectedOnnxVocabPath);
                     default:
                         _logger.Log($"FOUT: Onbekende AI-provider geselecteerd: '{providerName}'.");

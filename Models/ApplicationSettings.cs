@@ -8,8 +8,11 @@ namespace AI_FileOrganizer.Models
         public const int MinSubfolderNameLength = 3;
         public const int MaxSubfolderNameLength = 50;
         public const int MaxFilenameLength = 100; // Maximum length for AI-generated filename
+        public static bool UseDetailedSubfolders { get; set; } = true; // Voorbeeld: standaard aan
+        public static bool OrganizeFallbackCategoryIfNoMatch { get; set; } = true; // Voorbeeld: standaard aan
 
-        public static readonly string[] SupportedExtensions = { ".pdf", ".docx", ".txt", ".md" };
+
+        public static readonly string[] SupportedExtensions = { ".pdf", ".docx", ".txt", ".md" , ".pptx" };
 
         public static readonly Dictionary<string, string> FolderCategories = new Dictionary<string, string>
             {
