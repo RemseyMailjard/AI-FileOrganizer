@@ -1,50 +1,35 @@
-name: Build-&-Release
-
-on:
-  push:
-    branches: [dev]         # iedere commit op dev builden
-    tags:     ['v*']        # én bij semver-tags een release maken
-  workflow_dispatch:        # handmatig starten met optionele versie-input
-    inputs:
-      version:
-        description: 'SemVer zonder v, bv. 2.0.0-rc1'
-        required: false
-        default: ''
-
-permissions:
-  contents: write           # nodig voor softprops/action-gh-release
-
 jobs:
   build:
     runs-on: windows-latest
     outputs:
       version: ${{ steps.set_version.outputs.version }}
-      is_tag:  ${{ steps.set_version.outputs.is_tag }}
+      is_tag: ${{ steps.set_version.outputs.is_tag }}
 
     steps:
       - uses: actions/checkout@v4
 
-      # ── Versie bepalen ───────────────────────────────────────────
       - id: set_version
-        shell: bash
         run: |
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            ver="${GITHUB_REF_NAME#v}"    # tag → 1.8.0
-            is_tag="true"
-          elif [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ github.event.inputs.version }}" ]]; then
-            ver="${{ github.event.inputs.version }}"  # handmatig meegegeven
-            is_tag="true"        # want dit willen we als release beschouwen
-          else
-            # dev-snapshot → dev-<7-cijfer-sha>
-            ver="dev-${GITHUB_SHA:0:7}"
-            is_tag="false"
-          fi
-          echo "VERSION=$ver"           >> $GITHUB_ENV
-          echo "version=$ver"           >> $GITHUB_OUTPUT
-          echo "is_tag=$is_tag"         >> $GITHUB_OUTPUT
+          echo "version=1.0.0" >> "$GITHUB_OUTPUT"
+          echo "is_tag=false" >> "$GITHUB_OUTPUT"
 
-      # ── Build & Installer ───────────────────────────────────────
+      - uses: nuget/setup-nuget@v2
+        with:
+          nuget-version: 'latest'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.config') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore NuGet packages
+        run: nuget restore AI-FileOrganizer.sln
+
       - uses: microsoft/setup-msbuild@v2
+
       - name: Build solution
         run: msbuild AI-FileOrganizer.sln /p:Configuration=Release
 
@@ -54,34 +39,12 @@ jobs:
       - name: Run Inno Setup (inject versie)
         run: |
           iscc Installer\\AI-FolderInno.iss `
-               /dMyAppVersion=${{ env.VERSION }}
+            /dMyAppVersion=${{ steps.set_version.outputs.version }}
         env:
           PATH: "C:\\Program Files (x86)\\Inno Setup 6;${{ env.PATH }}"
 
       - uses: actions/upload-artifact@v4
         with:
           name: setup-exe
-          path: AI-FileOrganizerSetup.exe
+          path: output\AI-FileOrganizerSetup.exe
           retention-days: 7
-
-  release:
-    needs: build
-    if: needs.build.outputs.is_tag == 'true'   # sla deze job over op pure dev-pushes
-    runs-on: windows-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: setup-exe
-          path: .
-
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ needs.build.outputs.version }}
-          name: AI File Organizer v${{ needs.build.outputs.version }}
-          draft: false
-          prerelease: false
-          files: |
-            AI-FileOrganizerSetup.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
