@@ -52,7 +52,7 @@ Gebruik dan de losse **Persoonlijke Mappen Generator**:
 ## 📦 Installatie
 
 1.  Download de nieuwste installer uit de [`installer`](installer) map:
-    [AIFileOrganizerSetup.exe](Installer/AIFileOrganizerSetup.exe)
+    [AIFileOrganizerSetup.exe]([Installer/.exe](https://github.com/RemseyMailjard/AI-FileOrganizer/blob/master/Installer/AI-FileOrganizerSetup.exe))
 2.  Dubbelklik op het `AIFileOrganizerSetup.exe` bestand en volg de stappen in de installatie-wizard.
 3.  Start de applicatie via de snelkoppeling op je bureaublad of via het Startmenu.
 
