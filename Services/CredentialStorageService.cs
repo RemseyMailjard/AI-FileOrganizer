@@ -16,13 +16,6 @@ namespace AI_FileOrganizer.Services
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        /// <summary>
-        /// Slaat een API-sleutel en optioneel een Azure Endpoint op in de Windows Credential Manager.
-        /// De sleutel wordt opgeslagen als een credential voor de lokale gebruiker.
-        /// </summary>
-        /// <param name="providerName">De naam van de provider (bijv. "Gemini (Google)", "Azure OpenAI").</param>
-        /// <param name="apiKey">De API-sleutel.</param>
-        /// <param name="azureEndpoint">Optioneel: Het Azure Endpoint voor Azure OpenAI.</param>
         public void SaveApiKey(string providerName, string apiKey, string azureEndpoint = null)
         {
             if (string.IsNullOrWhiteSpace(providerName))
@@ -33,7 +26,7 @@ namespace AI_FileOrganizer.Services
             if (string.IsNullOrWhiteSpace(apiKey))
             {
                 _logger.Log($"WAARSCHUWING bij opslaan API-sleutel voor '{providerName}': API-sleutel is leeg. Verwijder bestaande.");
-                DeleteApiKey(providerName); // Verwijder indien de sleutel wordt gewist
+                DeleteApiKey(providerName);
                 return;
             }
 
@@ -42,11 +35,10 @@ namespace AI_FileOrganizer.Services
                 using (var credential = new Credential())
                 {
                     credential.Target = GetCredentialTarget(providerName);
-                    credential.Username = providerName; // Username kan de provider naam zijn, of leeg
+                    credential.Username = providerName;
 
                     if (!string.IsNullOrWhiteSpace(azureEndpoint))
                     {
-                        // Voor Azure, combineer sleutel en endpoint in een JSON-string in het wachtwoordveld
                         var azureConfig = new { ApiKey = apiKey, Endpoint = azureEndpoint };
                         credential.Password = JsonConvert.SerializeObject(azureConfig);
                         credential.Type = CredentialType.Generic;
@@ -54,12 +46,11 @@ namespace AI_FileOrganizer.Services
                     else
                     {
                         credential.Password = apiKey;
-                        credential.Type = CredentialType.Generic; // Kan ook NetworkPassword zijn, maar Generic is flexibeler
+                        credential.Type = CredentialType.Generic;
                     }
 
-                    credential.PersistanceType = PersistanceType.LocalComputer; // Alleen voor de huidige gebruiker
-
-                    credential.Save(); // Slaat de referentie op
+                    credential.PersistanceType = PersistanceType.LocalComputer;
+                    credential.Save();
                     _logger.Log($"INFO: API-sleutel voor '{providerName}' succesvol opgeslagen.");
                 }
             }
@@ -73,13 +64,13 @@ namespace AI_FileOrganizer.Services
         /// Haalt een API-sleutel en optioneel Azure Endpoint op uit de Windows Credential Manager.
         /// </summary>
         /// <param name="providerName">De naam van de provider.</param>
-        /// <returns>Een tuple (APIKey, AzureEndpoint), of (null, null) indien niet gevonden of fout.</returns>
-        public (string ApiKey, string AzureEndpoint) GetApiKey(string providerName)
+        /// <returns>Een System.Tuple<string, string> (APIKey, AzureEndpoint), of (null, null) indien niet gevonden of fout.</returns>
+        public Tuple<string, string> GetApiKey(string providerName) // <<< GEWIJZIGD RETURN TYPE
         {
             if (string.IsNullOrWhiteSpace(providerName))
             {
                 _logger.Log("FOUT bij ophalen API-sleutel: Providernaam is leeg.");
-                return (null, null);
+                return Tuple.Create<string, string>(null, null); // <<< GEWIJZIGD RETURN STATEMENT
             }
 
             try
@@ -87,34 +78,40 @@ namespace AI_FileOrganizer.Services
                 using (var credential = new Credential())
                 {
                     credential.Target = GetCredentialTarget(providerName);
-                    credential.Load(); // Laadt de referentie
+                    credential.Load();
 
-                    if (credential.Type == CredentialType.Generic && credential.Password.StartsWith("{") && credential.Password.Contains("ApiKey"))
+                    if (credential.Type == CredentialType.Generic && credential.Password != null && credential.Password.StartsWith("{") && credential.Password.Contains("\"ApiKey\"")) // Controleer ook op null
                     {
-                        // Dit is waarschijnlijk een Azure-configuratie (JSON)
+                        // Let op: DeserializeAnonymousType is prima, maar je kunt ook een specifieke klasse definiëren
+                        // als je meer controle wilt of als de structuur complexer wordt.
                         var azureConfig = JsonConvert.DeserializeAnonymousType(credential.Password, new { ApiKey = "", Endpoint = "" });
                         _logger.Log($"INFO: Azure-configuratie voor '{providerName}' succesvol geladen.");
-                        return (azureConfig.ApiKey, azureConfig.Endpoint);
+                        return Tuple.Create(azureConfig.ApiKey, azureConfig.Endpoint); // <<< GEWIJZIGD RETURN STATEMENT
                     }
                     else
                     {
                         _logger.Log($"INFO: API-sleutel voor '{providerName}' succesvol geladen.");
-                        return (credential.Password, null); // Retourneer alleen de sleutel
+                        return Tuple.Create(credential.Password, (string)null); // <<< GEWIJZIGD RETURN STATEMENT
                     }
                 }
             }
-
+            // Specifieke uitzondering voor wanneer de credential niet gevonden wordt.
+            // De CredentialManagement library gooit een Exception met een specifieke message.
+            // Helaas geen specifieke exception type, dus we moeten op de message checken of een HResult.
+            // Voor nu vangen we algemeen en loggen, maar dit kan verfijnd worden.
+            catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1168) // ERROR_NOT_FOUND
+            {
+                _logger.Log($"INFO: Geen API-sleutel gevonden voor '{providerName}'.");
+                return Tuple.Create<string, string>(null, null);
+            }
             catch (Exception ex)
             {
+                // Loggen van andere onverwachte fouten
                 _logger.Log($"FOUT bij ophalen API-sleutel voor '{providerName}': {ex.Message}");
-                return (null, null);
+                return Tuple.Create<string, string>(null, null); // <<< GEWIJZIGD RETURN STATEMENT
             }
         }
 
-        /// <summary>
-        /// Verwijdert een opgeslagen API-sleutel uit de Windows Credential Manager.
-        /// </summary>
-        /// <param name="providerName">De naam van de provider.</param>
         public void DeleteApiKey(string providerName)
         {
             if (string.IsNullOrWhiteSpace(providerName)) return;
@@ -124,15 +121,16 @@ namespace AI_FileOrganizer.Services
                 using (var credential = new Credential())
                 {
                     credential.Target = GetCredentialTarget(providerName);
-                    credential.Delete(); // Verwijdert de referentie
+                    // Probeer eerst te laden om te zien of het bestaat, voorkomt exception als het er niet is.
+                    // Echter, Delete() zelf gooit een exception als het niet bestaat, dus de catch is nodig.
+                    credential.Delete();
                     _logger.Log($"INFO: API-sleutel voor '{providerName}' succesvol verwijderd.");
                 }
             }
-          //  catch (Exception ex)
-        //    {
-                // Al niet aanwezig, dat is prima
-           //     _logger.Log($"INFO: API-sleutel voor '{providerName}' was niet aanwezig om te verwijderen.");
-       //     }
+            catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1168) // ERROR_NOT_FOUND
+            {
+                _logger.Log($"INFO: API-sleutel voor '{providerName}' was niet aanwezig om te verwijderen (of al verwijderd).");
+            }
             catch (Exception ex)
             {
                 _logger.Log($"FOUT bij verwijderen API-sleutel voor '{providerName}': {ex.Message}");
@@ -141,7 +139,17 @@ namespace AI_FileOrganizer.Services
 
         private string GetCredentialTarget(string providerName)
         {
-            return AppPrefix + providerName.Replace(" ", "").Replace("(", "").Replace(")", "").Replace(".", ""); // Maak een veilige target naam
+            // Maak een target naam die voldoet aan de eisen (bv. niet te lang, geen rare tekens).
+            // De huidige aanpak is redelijk.
+            string safeProviderName = providerName.Replace(" ", "").Replace("(", "").Replace(")", "").Replace(".", "").Replace("/", "");
+            string target = AppPrefix + safeProviderName;
+            // Target names in Credential Manager kunnen beperkt zijn in lengte (bv. 256 chars).
+            // Als providerName erg lang kan worden, overweeg een hash of inkorting.
+            if (target.Length > 250) // Veilige marge
+            {
+                target = target.Substring(0, 250);
+            }
+            return target;
         }
     }
 }

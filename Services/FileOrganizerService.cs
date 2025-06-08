@@ -5,7 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
+using System.Net.Http; // Alleen als je het direct gebruikt, anders via AiProvider implementaties
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms; // Voor DialogResult
@@ -18,12 +18,15 @@ namespace AI_FileOrganizer.Services
         private readonly AiClassificationService _aiService;
         private readonly TextExtractionService _textExtractionService;
         private readonly CredentialStorageService _credentialStorageService;
+        // HttpClient kan beter per provider geïnjecteerd worden of via een IHttpClientFactory
         private readonly HttpClient _httpClient;
         private readonly ImageAnalysisService _imageAnalysisService;
 
         public event Action<int, int> ProgressChanged;
         public event Action<long> TokensUsedUpdated;
-        public event Func<string, string, Task<(DialogResult result, string newFileName, bool skipFile)>> RequestRenameFile;
+        // Gebruik Tuple voor C# 7.3 compatibiliteit in het return type van de Func
+        public event Func<string, string, Task<Tuple<DialogResult, string, bool>>> RequestRenameFile;
+
 
         private long _totalTokensUsed = 0;
 
@@ -35,22 +38,22 @@ namespace AI_FileOrganizer.Services
             AiClassificationService aiService,
             TextExtractionService textExtractionService,
             CredentialStorageService credentialStorageService,
-            HttpClient httpClient,
+            HttpClient httpClient, // Overweeg IHttpClientFactory
             ImageAnalysisService imageAnalysisService)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _aiService = aiService ?? throw new ArgumentNullException(nameof(aiService));
             _textExtractionService = textExtractionService ?? throw new ArgumentNullException(nameof(textExtractionService));
             _credentialStorageService = credentialStorageService ?? throw new ArgumentNullException(nameof(credentialStorageService));
-            _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+            _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient)); // Of injecteer IHttpClientFactory
             _imageAnalysisService = imageAnalysisService ?? throw new ArgumentNullException(nameof(imageAnalysisService));
         }
 
         public async Task OrganizeFilesAsync(
-            string sourcePath,
-            string destinationBasePath,
+            string sourcePath, // Dit is de root map van waaruit bestanden gelezen worden
+            string destinationBasePath, // Dit is de root map waar de georganiseerde structuur komt
             string apiKey,
-            string providerName, // Dit is de algemeen geselecteerde provider in de UI
+            string providerName,
             string modelName,
             string azureEndpoint,
             bool shouldRenameFiles,
@@ -59,10 +62,7 @@ namespace AI_FileOrganizer.Services
             _totalTokensUsed = 0;
             if (TokensUsedUpdated != null) TokensUsedUpdated.Invoke(_totalTokensUsed);
 
-            // --- Configureer services op basis van geselecteerde provider ---
             bool isExplicitImageProvider = providerName.Contains("Azure AI Vision") || providerName.Contains("OpenAI GPT-4 Vision");
-            bool isPotentiallyDualPurposeProvider = providerName.Contains("OpenAI") || providerName.Contains("Azure"); // Kan tekst of vision zijn (bijv. GPT-4o, of Azure OpenAI met vision model)
-
             IAiProvider currentTextAiProvider = null;
 
             if (isExplicitImageProvider)
@@ -86,19 +86,18 @@ namespace AI_FileOrganizer.Services
                 catch (ArgumentException argEx)
                 {
                     _logger.Log($"FOUT bij configureren Image Analysis Provider: {argEx.Message}. Afbeeldingsanalyse zal falen.");
-                    // Overweeg te stoppen als afbeeldingsverwerking cruciaal is. Voor nu gaan we door.
                 }
             }
-            else // Het is een tekst-provider of een multi-purpose provider
+            else
             {
                 currentTextAiProvider = GetAiProvider(apiKey, providerName, azureEndpoint, modelName);
-                if (currentTextAiProvider == null && providerName != "Lokaal ONNX-model")
+                if (currentTextAiProvider == null && providerName != "Lokaal ONNX-model") // ONNX kan nog steeds werken via AiClassificationService intern
                 {
-                    _logger.Log("FOUT: Kon Tekst AI Provider niet initialiseren. Organisatie gestopt voor documenten.");
-                    return;
+                    _logger.Log("FOUT: Kon Tekst AI Provider niet initialiseren. Organisatie gestopt voor documenten die deze provider vereisen.");
+                    // Overweeg of je hier wilt returnen, of doorgaan voor afbeeldingen / ONNX
                 }
-                // Als het een multi-purpose provider is (zoals GPT-4o via "OpenAI (openai.com)"), configureer ook ImageAnalysisService
-                if (providerName == "OpenAI (openai.com)" && (modelName.Contains("gpt-4o") || modelName.Contains("vision"))) // Check of het model vision aankan
+
+                if (providerName == "OpenAI (openai.com)" && (modelName.Contains("gpt-4o") || modelName.Contains("vision")))
                 {
                     try
                     {
@@ -107,7 +106,6 @@ namespace AI_FileOrganizer.Services
                     }
                     catch (ArgumentException argEx) { _logger.Log($"FOUT bij configureren OpenAI voor vision: {argEx.Message}"); }
                 }
-                // Voeg vergelijkbare logica toe voor Azure OpenAI als het een vision-enabled deployment is
             }
 
             if (providerName != "Lokaal ONNX-model" && !string.IsNullOrEmpty(apiKey))
@@ -140,26 +138,24 @@ namespace AI_FileOrganizer.Services
 
                 FileInfo fileInfo = new FileInfo(filePath);
                 processedCount++;
-                _logger.Log($"\n[BESTAND {processedCount}/{allFiles.Count}] Verwerken van: {fileInfo.Name} (locatie: {Path.GetDirectoryName(filePath)})");
+                _logger.Log($"\n[BESTAND {processedCount}/{allFiles.Count}] Verwerken van: {fileInfo.Name} (locatie: {fileInfo.DirectoryName})");
 
                 try
                 {
                     bool currentFileIsImage = ApplicationSettings.ImageExtensions.Contains(fileInfo.Extension.ToLowerInvariant());
 
-                    var resultTuple = await ProcessAndMoveSingleFileInternalAsync(
+                    // De sourcePath parameter is de root van de input, niet de directe directory van het bestand
+                    Tuple<bool, bool, bool, bool> resultTuple = await ProcessAndMoveSingleFileInternalAsync(
                         filePath, fileInfo, sourcePath, destinationBasePath,
-                        currentTextAiProvider, // Dit is de geconfigureerde tekst-AI provider (kan null zijn)
-                        modelName,             // Dit is de geselecteerde modelnaam
-                        shouldRenameFiles, cancellationToken,
-                        currentFileIsImage,
-                        providerName           // De algemeen geselecteerde providernaam uit de UI
+                        currentTextAiProvider, modelName, shouldRenameFiles, cancellationToken,
+                        currentFileIsImage, providerName
                         ).ConfigureAwait(false);
 
-                    if (resultTuple.processed)
+                    if (resultTuple.Item1) // processed
                     {
-                        if (resultTuple.moved) movedFiles++;
-                        if (resultTuple.hadSubfolder) filesWithDetailedSubfolders++;
-                        if (resultTuple.renamed) renamedFiles++;
+                        if (resultTuple.Item2) movedFiles++;
+                        if (resultTuple.Item3) filesWithDetailedSubfolders++;
+                        if (resultTuple.Item4) renamedFiles++;
                     }
                 }
                 catch (OperationCanceledException) { _logger.Log("INFO: Verwerking van bestand geannuleerd."); throw; }
@@ -179,7 +175,7 @@ namespace AI_FileOrganizer.Services
         public async Task RenameSingleFileInteractiveAsync(
             string filePath,
             string apiKey,
-            string providerName, // De geselecteerde provider uit de UI
+            string providerName,
             string modelName,
             string azureEndpoint,
             CancellationToken cancellationToken)
@@ -190,7 +186,6 @@ namespace AI_FileOrganizer.Services
             string fileExtension = Path.GetExtension(filePath).ToLowerInvariant();
             bool isImageFile = ApplicationSettings.ImageExtensions.Contains(fileExtension);
             bool isDocumentFile = ApplicationSettings.DocumentExtensions.Contains(fileExtension) && !isImageFile;
-
             IAiProvider textAiProvider = null;
 
             try
@@ -214,15 +209,12 @@ namespace AI_FileOrganizer.Services
                     }
                     else
                     {
-                        // Als het een afbeelding is, maar de geselecteerde provider is niet expliciet een Vision provider,
-                        // probeer dan of het een multi-purpose provider is (zoals OpenAI (openai.com) met gpt-4o).
                         if (providerName == "OpenAI (openai.com)" && (modelName.Contains("gpt-4o") || modelName.Contains("vision")))
                         {
                             if (string.IsNullOrWhiteSpace(apiKey)) throw new ArgumentException("OpenAI API Key is vereist voor Vision features.");
                             _imageAnalysisService.ConfigureOpenAi(apiKey, modelName);
                             _logger.Log($"INFO: OpenAI (multi-purpose) geconfigureerd voor vision voor afbeelding.");
                         }
-                        // Voeg hier logica toe voor Azure OpenAI als multi-purpose vision provider
                         else
                         {
                             _logger.Log($"FOUT: Geselecteerde provider '{providerName}' is niet herkend als een ondersteunde Vision provider voor afbeelding '{Path.GetFileName(filePath)}'. Hernoemen gestopt.");
@@ -256,7 +248,7 @@ namespace AI_FileOrganizer.Services
                 return;
             }
 
-            if (!System.IO.File.Exists(filePath))
+            if (!File.Exists(filePath))
             {
                 _logger.Log($"FOUT: Bestand niet gevonden voor hernoemen: '{Path.GetFileName(filePath)}'.");
                 return;
@@ -295,7 +287,7 @@ namespace AI_FileOrganizer.Services
                         return;
                     }
                     string extractedText = _textExtractionService.ExtractText(filePath);
-                    _logger.Log($"INFO: Geëxtraheerde tekst (eerste 100 karakters): '{(extractedText?.Length > 100 ? extractedText.Substring(0, 100) : extractedText)}'...");
+                    _logger.Log($"INFO: Geëxtraheerde tekst (eerste 100 karakters): '{(extractedText != null && extractedText.Length > 100 ? extractedText.Substring(0, 100) + "..." : extractedText)}'...");
                     if (string.IsNullOrWhiteSpace(extractedText)) extractedText = fileInfo.Name;
                     if (extractedText.Length > ApplicationSettings.MaxTextLengthForLlm)
                         extractedText = extractedText.Substring(0, ApplicationSettings.MaxTextLengthForLlm);
@@ -320,7 +312,11 @@ namespace AI_FileOrganizer.Services
                     return;
                 }
 
-                var (dialogResult, returnedFileName, skipFile) = await RequestRenameFile.Invoke(fileInfo.Name, suggestedNewBaseName + fileInfo.Extension).ConfigureAwait(false);
+                Tuple<DialogResult, string, bool> renameResponse = await RequestRenameFile.Invoke(fileInfo.Name, suggestedNewBaseName + fileInfo.Extension).ConfigureAwait(false);
+                DialogResult dialogResult = renameResponse.Item1;
+                string returnedFileName = renameResponse.Item2;
+                bool skipFile = renameResponse.Item3;
+
 
                 if (dialogResult == DialogResult.OK)
                 {
@@ -351,23 +347,11 @@ namespace AI_FileOrganizer.Services
                         if (!string.IsNullOrWhiteSpace(newFileNameSanitized) && newFileNameSanitized != fileInfo.Name)
                         {
                             string destinationFilePath = Path.Combine(Path.GetDirectoryName(filePath), newFileNameSanitized);
-                            if (System.IO.File.Exists(destinationFilePath) && !destinationFilePath.Equals(filePath, StringComparison.OrdinalIgnoreCase))
-                            {
-                                string baseNameConflict = Path.GetFileNameWithoutExtension(newFileNameSanitized);
-                                string extensionConflict = Path.GetExtension(newFileNameSanitized);
-                                int counter = 1;
-                                string uniqueDestinationFilePath = destinationFilePath;
-                                while (System.IO.File.Exists(uniqueDestinationFilePath))
-                                {
-                                    uniqueDestinationFilePath = Path.Combine(Path.GetDirectoryName(filePath), $"{baseNameConflict}_{counter}{extensionConflict}");
-                                    counter++;
-                                }
-                                _logger.Log($"INFO: Bestand '{newFileNameSanitized}' bestaat al. Hernoemd naar '{Path.GetFileName(uniqueDestinationFilePath)}'.");
-                                destinationFilePath = uniqueDestinationFilePath;
-                            }
+                            destinationFilePath = GetUniqueFilePath(destinationFilePath, filePath); // Zorg voor uniek pad
+
                             if (!destinationFilePath.Equals(filePath, StringComparison.OrdinalIgnoreCase))
                             {
-                                System.IO.File.Move(filePath, destinationFilePath);
+                                File.Move(filePath, destinationFilePath);
                                 _logger.Log($"OK: '{fileInfo.Name}' hernoemd naar '{Path.GetFileName(destinationFilePath)}'.");
                             }
                             else { _logger.Log($"INFO: Doel bestandsnaam '{Path.GetFileName(destinationFilePath)}' is hetzelfde als origineel. Niet hernoemd."); }
@@ -382,108 +366,90 @@ namespace AI_FileOrganizer.Services
             finally { _logger.Log("\nEnkel bestand hernoemen voltooid."); if (TokensUsedUpdated != null) TokensUsedUpdated.Invoke(_totalTokensUsed); }
         }
 
-        private async Task<(bool processed, bool moved, bool hadSubfolder, bool renamed)> ProcessAndMoveSingleFileInternalAsync(
-            string filePath,
-            FileInfo fileInfo,
-            string currentSourcePath,
-            string destinationBasePath,
-            IAiProvider currentTextAiProvider, // Kan null zijn als de algemene provider een image provider is
+        // HERSCHREVEN METHODE VOOR PADCONSTRUCTIE
+        private async Task<Tuple<bool, bool, bool, bool>> ProcessAndMoveSingleFileInternalAsync(
+            string currentFullFilePath, // Volledige pad naar het bronbestand
+            FileInfo fileInfo,           // FileInfo object van het bronbestand
+            string sourcePathRoot,       // De root input directory (bijv. C:\Users\Remse\Desktop\Persoonlijke Administratie244)
+            string destinationBasePath,  // De root output directory (bijv. C:\Georganiseerde Documenten)
+            IAiProvider currentTextAiProvider,
             string modelName,
             bool shouldRenameFiles,
             CancellationToken cancellationToken,
             bool isImageFileCurrent,
-            string uiSelectedProviderName // De providernaam zoals geselecteerd in de UI
-            )
+            string uiSelectedProviderName)
         {
             string extractedText = null;
-            string suggestedNewBaseName = null;
+            string suggestedNewBaseName = null; // Alleen de naam zonder extensie
             bool wasRenamed = false;
+            bool hadDetailedSubfolder = false;
 
-            if (!isImageFileCurrent) // Document logica
+            // --- Padvariabelen ---
+            string targetMainCategoryFolderByKey; // De key zoals "Financiën"
+            string targetMainCategoryFolderName;  // De mapnaam zoals "1. Financieel"
+            string detailedSubfolderRelativePath = null; // Relatief t.o.v. targetMainCategoryFolderName, bv. "Facturen\2024"
+            string finalNewFileName = fileInfo.Name; // Start met de originele naam
+
+            if (!isImageFileCurrent) // Het is een DOCUMENT
             {
-                extractedText = _textExtractionService.ExtractText(filePath);
-                if (string.IsNullOrWhiteSpace(extractedText)) { extractedText = fileInfo.Name; _logger.Log($"INFO: Geen tekst geëxtraheerd uit {fileInfo.Name}. Gebruik bestandsnaam."); }
+                extractedText = _textExtractionService.ExtractText(currentFullFilePath);
+                if (string.IsNullOrWhiteSpace(extractedText)) { extractedText = fileInfo.Name; _logger.Log($"INFO: Geen tekst geëxtraheerd uit {fileInfo.Name}. Gebruik bestandsnaam als context."); }
                 if (extractedText.Length > ApplicationSettings.MaxTextLengthForLlm) { extractedText = extractedText.Substring(0, ApplicationSettings.MaxTextLengthForLlm); _logger.Log($"WAARSCHUWING: Tekst voor '{fileInfo.Name}' afgekapt."); }
 
                 IAiProvider providerForClassification = currentTextAiProvider;
-                if (providerForClassification == null && uiSelectedProviderName == "Lokaal ONNX-model") // ONNX kan nog steeds werken
+                if (providerForClassification == null && uiSelectedProviderName == "Lokaal ONNX-model")
                 {
-                    _logger.Log($"INFO: Geen actieve Text AI provider, maar ONNX geselecteerd. AiClassificationService zal proberen ONNX te gebruiken.");
-                    // AiClassificationService zal intern proberen de OnnxRobBERTProvider te gebruiken als categoryEmbeddings worden meegegeven.
-                    // In dit scenario zou je currentTextAiProvider moeten instantiëren als OnnxRobBERTProvider of de logica in AiClassificationService aanpassen.
-                    // Voor nu, als ONNX is geselecteerd, wordt currentTextAiProvider in GetAiProvider al correct gezet.
+                    // Als ONNX de UI selectie is, maar currentTextAiProvider null is (omdat het geen text provider is),
+                    // dan moet AiClassificationService intern de ONNX provider kunnen gebruiken.
+                    // GetAiProvider zou al een OnnxRobBERTProvider moeten retourneren als "Lokaal ONNX-model" geselecteerd is.
+                    // Als dat niet zo is, dan is er een logische fout in GetAiProvider of de aanroep ervan.
+                    _logger.Log($"INFO: ONNX geselecteerd. AiClassificationService zal proberen ONNX te gebruiken indien geconfigureerd met embeddings.");
+                    // Voor de zekerheid: als GetAiProvider de ONNX provider niet correct instelt, doe het hier:
+                    if (currentTextAiProvider == null && !string.IsNullOrEmpty(SelectedOnnxModelPath))
+                        providerForClassification = new OnnxRobBERTProvider(_logger, SelectedOnnxModelPath, SelectedOnnxVocabPath);
+
                 }
                 else if (providerForClassification == null)
                 {
-                    // Fallback naar een default tekst provider als die geconfigureerd is en de huidige provider niet voor tekst is
-                    if (!string.IsNullOrWhiteSpace(ApplicationSettings.DefaultProviderForDocumentsIfNotSpecified) &&
-                        ApplicationSettings.DefaultProviderForDocumentsIfNotSpecified != "Lokaal ONNX-model") // Voorkom recursie of onnodige ONNX hier
-                    {
-                        _logger.Log($"INFO: Geselecteerde provider '{uiSelectedProviderName}' niet geschikt voor tekst. Probeer default document provider: {ApplicationSettings.DefaultProviderForDocumentsIfNotSpecified}");
-                        // Haal API key/endpoint op voor deze default provider (dit ontbreekt nu)
-                        // Voorbeeld: string defaultApiKey = _credentialStorageService.GetApiKey(ApplicationSettings.DefaultProviderForDocumentsIfNotSpecified).apiKey;
-                        // providerForClassification = GetAiProvider(defaultApiKey, ApplicationSettings.DefaultProviderForDocumentsIfNotSpecified, defaultAzureEndpoint, defaultModel);
-                        // Dit vereist dat je keys voor de default provider beschikbaar hebt.
-                        _logger.Log($"WAARSCHUWING: Default provider ophalen niet volledig geïmplementeerd. Classificatie kan falen.");
-                    }
-
-                    if (providerForClassification == null) // Nog steeds null na default poging
-                    {
-                        _logger.Log($"FOUT: Geen geschikte Text AI provider beschikbaar voor document '{fileInfo.Name}'. Kan niet classificeren/hernoemen.");
-                        return (false, false, false, false);
-                    }
+                    _logger.Log($"FOUT: Geen geschikte Text AI provider beschikbaar voor document '{fileInfo.Name}'. Kan niet classificeren/hernoemen.");
+                    return Tuple.Create(false, false, false, false); // processed, moved, hadSubfolder, renamed
                 }
 
-
-                string llmCategoryChoice = await _aiService.ClassifyCategoryAsync(
+                targetMainCategoryFolderByKey = await _aiService.ClassifyCategoryAsync(
                     extractedText, fileInfo.Name, ApplicationSettings.FolderCategories.Keys.ToList(),
                     providerForClassification, modelName, cancellationToken).ConfigureAwait(false);
                 _totalTokensUsed += _aiService.LastCallSimulatedTokensUsed;
                 if (TokensUsedUpdated != null) TokensUsedUpdated.Invoke(_totalTokensUsed);
 
-                if (string.IsNullOrWhiteSpace(llmCategoryChoice) ||
-                    (llmCategoryChoice.Equals(ApplicationSettings.FallbackCategoryKey, StringComparison.OrdinalIgnoreCase) &&
+                if (string.IsNullOrWhiteSpace(targetMainCategoryFolderByKey) ||
+                    (targetMainCategoryFolderByKey.Equals(ApplicationSettings.FallbackCategoryKey, StringComparison.OrdinalIgnoreCase) &&
                      !ApplicationSettings.OrganizeFallbackCategoryIfNoMatch))
                 {
                     _logger.Log($"WAARSCHUWING: Document '{fileInfo.Name}' niet geclassificeerd of viel in '{ApplicationSettings.FallbackCategoryKey}' (fallback organisatie uit). Niet verplaatst.");
-                    return (false, false, false, false);
+                    return Tuple.Create(false, false, false, false);
                 }
 
-                string targetCategoryFolderName;
-                if (llmCategoryChoice.Equals(ApplicationSettings.FallbackCategoryKey, StringComparison.OrdinalIgnoreCase))
-                { targetCategoryFolderName = ApplicationSettings.FallbackFolderName; }
-                else if (!ApplicationSettings.FolderCategories.TryGetValue(llmCategoryChoice, out targetCategoryFolderName))
-                { _logger.Log($"FOUT: Categorie '{llmCategoryChoice}' onbekend. Gebruik fallback voor '{fileInfo.Name}'."); targetCategoryFolderName = ApplicationSettings.FallbackFolderName; }
+                // Map de AI categorie key naar de daadwerkelijke mapnaam
+                if (targetMainCategoryFolderByKey.Equals(ApplicationSettings.FallbackCategoryKey, StringComparison.OrdinalIgnoreCase))
+                {
+                    targetMainCategoryFolderName = ApplicationSettings.FallbackFolderName;
+                }
+                else if (!ApplicationSettings.FolderCategories.TryGetValue(targetMainCategoryFolderByKey, out targetMainCategoryFolderName))
+                {
+                    _logger.Log($"FOUT: Categorie key '{targetMainCategoryFolderByKey}' onbekend. Gebruik fallback map voor '{fileInfo.Name}'.");
+                    targetMainCategoryFolderName = ApplicationSettings.FallbackFolderName;
+                    targetMainCategoryFolderByKey = ApplicationSettings.FallbackCategoryKey; // Zorg dat key consistent is
+                }
 
-                string targetCategoryFolderPath = Path.Combine(destinationBasePath, targetCategoryFolderName);
-                Directory.CreateDirectory(targetCategoryFolderPath);
-
-                string detailedSubfolderRelativePath = null;
-                bool hadDetailedSubfolder = false;
                 if (ApplicationSettings.UseDetailedSubfolders)
                 {
                     detailedSubfolderRelativePath = await _aiService.SuggestDetailedSubfolderAsync(
-                        extractedText, fileInfo.Name, llmCategoryChoice,
+                        extractedText, fileInfo.Name, targetMainCategoryFolderByKey, // Geef de KEY mee
                         providerForClassification, modelName, cancellationToken).ConfigureAwait(false);
                     _totalTokensUsed += _aiService.LastCallSimulatedTokensUsed;
                     if (TokensUsedUpdated != null) TokensUsedUpdated.Invoke(_totalTokensUsed);
                     hadDetailedSubfolder = !string.IsNullOrWhiteSpace(detailedSubfolderRelativePath);
                 }
-
-                string finalTargetDirectory;
-                if (hadDetailedSubfolder)
-                {
-                    finalTargetDirectory = Path.Combine(targetCategoryFolderPath, detailedSubfolderRelativePath);
-                    _logger.Log($"INFO: AI suggereerde gedetailleerd subpad: '{detailedSubfolderRelativePath}' voor document.");
-                }
-                else
-                {
-                    string originalFileDir = Path.GetDirectoryName(filePath);
-                    string normSourcePath = currentSourcePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                    string relPathToPreserve = !originalFileDir.Equals(normSourcePath, StringComparison.OrdinalIgnoreCase) ? FileUtils.GetRelativePath(currentSourcePath, originalFileDir) : "";
-                    finalTargetDirectory = string.IsNullOrEmpty(relPathToPreserve) ? targetCategoryFolderPath : Path.Combine(targetCategoryFolderPath, relPathToPreserve);
-                }
-                Directory.CreateDirectory(finalTargetDirectory);
 
                 if (shouldRenameFiles)
                 {
@@ -492,27 +458,26 @@ namespace AI_FileOrganizer.Services
                     _totalTokensUsed += _aiService.LastCallSimulatedTokensUsed;
                     if (TokensUsedUpdated != null) TokensUsedUpdated.Invoke(_totalTokensUsed);
                 }
-                return await FinalizeMoveAndRename(filePath, fileInfo, finalTargetDirectory, destinationBasePath, suggestedNewBaseName, shouldRenameFiles, wasRenamed, hadDetailedSubfolder).ConfigureAwait(false);
             }
-            else // Het is een afbeelding
+            else // Het is een AFBEELDING
             {
                 _logger.Log($"INFO: Verwerken als afbeelding: {fileInfo.Name}");
-                string imageDestinationFolder = Path.Combine(destinationBasePath, ApplicationSettings.DefaultImageFolderName);
-                Directory.CreateDirectory(imageDestinationFolder);
+                targetMainCategoryFolderName = ApplicationSettings.DefaultImageFolderName; // Afbeeldingen gaan naar een vaste map
+                // Geen gedetailleerde submappen voor afbeeldingen in dit scenario (kan worden uitgebreid)
+                hadDetailedSubfolder = false;
 
                 if (shouldRenameFiles)
                 {
-                    // De _imageAnalysisService is al geconfigureerd aan het begin van OrganizeFilesAsync
-                    // op basis van de algemene uiSelectedProviderName.
+                    // ImageAnalysisService is al geconfigureerd aan het begin van OrganizeFilesAsync
                     if (uiSelectedProviderName.Contains("Azure AI Vision"))
                     {
                         suggestedNewBaseName = await _imageAnalysisService.SuggestImageNameAzureAsync(
-                            filePath, fileInfo.Name, cancellationToken).ConfigureAwait(false);
+                            currentFullFilePath, fileInfo.Name, cancellationToken).ConfigureAwait(false);
                     }
                     else if (uiSelectedProviderName.Contains("OpenAI GPT-4 Vision") || (uiSelectedProviderName == "OpenAI (openai.com)" && (modelName.Contains("gpt-4o") || modelName.Contains("vision"))))
                     {
                         suggestedNewBaseName = await _imageAnalysisService.SuggestImageNameOpenAiAsync(
-                            filePath, fileInfo.Name, cancellationToken).ConfigureAwait(false);
+                            currentFullFilePath, fileInfo.Name, cancellationToken).ConfigureAwait(false);
                     }
                     else
                     {
@@ -521,106 +486,152 @@ namespace AI_FileOrganizer.Services
                     _totalTokensUsed += _imageAnalysisService.LastCallSimulatedTokensUsed;
                     if (TokensUsedUpdated != null) TokensUsedUpdated.Invoke(_totalTokensUsed);
                 }
-                return await FinalizeMoveAndRename(filePath, fileInfo, imageDestinationFolder, destinationBasePath, suggestedNewBaseName, shouldRenameFiles, wasRenamed, false).ConfigureAwait(false);
             }
-        }
 
-        private async Task<(bool processed, bool moved, bool hadSubfolder, bool renamed)> FinalizeMoveAndRename(
-            string currentFilePath, FileInfo fileInfo, string finalTargetDirectory, string destinationBasePath,
-            string suggestedNewBaseName, bool shouldRename, bool initialWasRenamedState, bool hadDetailedSubfolder)
-        {
-            string newFileName = fileInfo.Name;
-            bool wasActuallyRenamed = initialWasRenamedState;
-
-            if (shouldRename)
+            // Hernoem logica (indien van toepassing)
+            if (shouldRenameFiles && !string.IsNullOrWhiteSpace(suggestedNewBaseName))
             {
-                if (!string.IsNullOrWhiteSpace(suggestedNewBaseName))
+                string tempNewFileName = FileUtils.SanitizeFileName(suggestedNewBaseName + fileInfo.Extension);
+                string baseNameOnly = Path.GetFileNameWithoutExtension(tempNewFileName);
+                if (baseNameOnly.Length > ApplicationSettings.MaxFilenameLength)
                 {
-                    string tempNewFileName = FileUtils.SanitizeFileName(suggestedNewBaseName + fileInfo.Extension);
-                    string baseNameWithoutExt = Path.GetFileNameWithoutExtension(tempNewFileName);
-                    string extension = Path.GetExtension(tempNewFileName);
-                    if (baseNameWithoutExt.Length > ApplicationSettings.MaxFilenameLength)
-                    {
-                        baseNameWithoutExt = baseNameWithoutExt.Substring(0, ApplicationSettings.MaxFilenameLength);
-                        tempNewFileName = baseNameWithoutExt + extension;
-                    }
-
-                    if (!string.IsNullOrWhiteSpace(tempNewFileName) && tempNewFileName != fileInfo.Name)
-                    {
-                        newFileName = tempNewFileName;
-                        wasActuallyRenamed = true;
-                        _logger.Log($"INFO: AI suggereerde nieuwe bestandsnaam: '{newFileName}' voor '{fileInfo.Name}'");
-                    }
-                    else { _logger.Log($"INFO: AI-suggestie voor bestandsnaam was niet bruikbaar/gelijk aan origineel voor '{fileInfo.Name}'."); }
+                    baseNameOnly = baseNameOnly.Substring(0, ApplicationSettings.MaxFilenameLength);
+                    tempNewFileName = baseNameOnly + fileInfo.Extension;
                 }
-                else { _logger.Log($"INFO: AI gaf geen suggestie voor bestandsnaam voor '{fileInfo.Name}'."); }
+
+                if (!tempNewFileName.Equals(fileInfo.Name, StringComparison.OrdinalIgnoreCase) &&
+                    !string.IsNullOrWhiteSpace(baseNameOnly)) // Voorkom hernoemen naar alleen extensie
+                {
+                    finalNewFileName = tempNewFileName;
+                    wasRenamed = true;
+                    _logger.Log($"INFO: AI suggereerde nieuwe bestandsnaam: '{finalNewFileName}' voor '{fileInfo.Name}'");
+                }
+                else
+                {
+                    _logger.Log($"INFO: AI-suggestie voor bestandsnaam ('{suggestedNewBaseName}') was niet bruikbaar, gelijk aan origineel, of resulteerde in een ongeldige naam na opschonen voor '{fileInfo.Name}'.");
+                }
             }
 
-            string destinationFilePath = Path.Combine(finalTargetDirectory, newFileName);
 
-            if (System.IO.File.Exists(destinationFilePath))
+            // --- Constructie van het DEFINITIEVE DOELPAD ---
+            string finalRelativePathToDestinationRoot; // Relatief t.o.v. destinationBasePath
+
+            if (!string.IsNullOrWhiteSpace(detailedSubfolderRelativePath)) // Alleen voor documenten met AI subfolder
             {
-                if (destinationFilePath.Equals(currentFilePath, StringComparison.OrdinalIgnoreCase) &&
-                    newFileName.Equals(fileInfo.Name, StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.Log($"INFO: Bestand '{fileInfo.Name}' is al op de doel locatie en wordt niet hernoemd. Geen verplaatsing nodig.");
-                    return (true, false, hadDetailedSubfolder, wasActuallyRenamed);
-                }
-
-                string baseNameConflict = Path.GetFileNameWithoutExtension(newFileName);
-                string extensionConflict = Path.GetExtension(newFileName);
-                int counter = 1;
-                string uniqueDestinationFilePath = destinationFilePath;
-                while (System.IO.File.Exists(uniqueDestinationFilePath) && !uniqueDestinationFilePath.Equals(currentFilePath, StringComparison.OrdinalIgnoreCase))
-                {
-                    uniqueDestinationFilePath = Path.Combine(finalTargetDirectory, $"{baseNameConflict}_{counter}{extensionConflict}");
-                    counter++;
-                }
-                if (System.IO.File.Exists(uniqueDestinationFilePath) && !uniqueDestinationFilePath.Equals(currentFilePath, StringComparison.OrdinalIgnoreCase))
-                {
-                    _logger.Log($"FOUT: Kon geen unieke bestandsnaam genereren voor '{newFileName}' in '{finalTargetDirectory}'. Bestand overgeslagen.");
-                    return (false, false, false, false);
-                }
-                if (!destinationFilePath.Equals(uniqueDestinationFilePath))
-                {
-                    _logger.Log($"INFO: Doelbestand '{newFileName}' bestaat al. Hernoemd naar '{Path.GetFileName(uniqueDestinationFilePath)}' om conflict te voorkomen.");
-                    newFileName = Path.GetFileName(uniqueDestinationFilePath);
-                    destinationFilePath = uniqueDestinationFilePath;
-                    wasActuallyRenamed = true;
-                }
+                // Voorbeeld: targetMainCategoryFolderName = "2. Belastingzaken"
+                //            detailedSubfolderRelativePath = "Belastingaangiften\IB 2021"
+                //            finalNewFileName = "Aangifte 2021.pdf"
+                // Resultaat: "2. Belastingzaken\Belastingaangiften\IB 2021\Aangifte 2021.pdf"
+                finalRelativePathToDestinationRoot = Path.Combine(targetMainCategoryFolderName, detailedSubfolderRelativePath, finalNewFileName);
             }
-
-            if (destinationFilePath.Equals(currentFilePath, StringComparison.OrdinalIgnoreCase))
+            else // Documenten zonder AI subfolder, of afbeeldingen
             {
-                _logger.Log($"INFO: Doelpad voor '{fileInfo.Name}' is identiek aan bronpad. Geen verplaatsing nodig.");
-                return (true, false, hadDetailedSubfolder, wasActuallyRenamed);
+                // Voorbeeld (document): targetMainCategoryFolderName = "11. Zakelijke Administratie"
+                //                     finalNewFileName = "Rapport.docx"
+                // Resultaat: "11. Zakelijke Administratie\Rapport.docx"
+                // Voorbeeld (afbeelding): targetMainCategoryFolderName = "Afbeeldingen"
+                //                       finalNewFileName = "Vakantiefoto.jpg"
+                // Resultaat: "Afbeeldingen\Vakantiefoto.jpg"
+                finalRelativePathToDestinationRoot = Path.Combine(targetMainCategoryFolderName, finalNewFileName);
             }
 
+            string fullDestinationPath = Path.Combine(destinationBasePath, finalRelativePathToDestinationRoot);
+            // --- Einde padconstructie ---
+
+
+            // Controleer of het bestand al op de juiste plek staat met de juiste naam
+            if (currentFullFilePath.Equals(fullDestinationPath, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.Log($"INFO: Bestand '{fileInfo.Name}' is al op de correcte doellocatie en heeft de correcte naam. Geen actie nodig.");
+                return Tuple.Create(true, false, hadDetailedSubfolder, wasRenamed); // processed, !moved, hadSubfolder, wasRenamed
+            }
+
+            // Verplaats/hernoem bestand (met conflictresolutie)
             try
             {
-                System.IO.File.Move(currentFilePath, destinationFilePath);
-                _logger.Log($"OK: Origineel '{fileInfo.Name}' verplaatst/hernoemd naar '{FileUtils.GetRelativePath(destinationBasePath, destinationFilePath)}'");
-                return (true, true, hadDetailedSubfolder, wasActuallyRenamed);
+                Directory.CreateDirectory(Path.GetDirectoryName(fullDestinationPath));
+                string finalPathToMove = GetUniqueFilePath(fullDestinationPath, currentFullFilePath); // currentFullFilePath is om eigen overschrijven te voorkomen
+
+                if (!finalPathToMove.Equals(fullDestinationPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.Log($"INFO: Doelpad '{Path.GetFileName(fullDestinationPath)}' bestaat of conflict. Gebruik uniek pad '{Path.GetFileName(finalPathToMove)}'.");
+                    // Als de naam veranderd is door uniek maken, update wasRenamed
+                    if (!Path.GetFileName(finalPathToMove).Equals(finalNewFileName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        wasRenamed = true; // Het is hernoemd, ook al was het alleen om uniek te maken
+                    }
+                }
+
+
+                File.Move(currentFullFilePath, finalPathToMove);
+                // Log het relatieve pad ten opzichte van de destinationBasePath
+                _logger.Log($"OK: Origineel '{fileInfo.Name}' (van '{fileInfo.DirectoryName}') verplaatst/hernoemd naar '{FileUtils.GetRelativePath(destinationBasePath, finalPathToMove)}'");
+                return Tuple.Create(true, true, hadDetailedSubfolder, wasRenamed); // processed, moved, hadSubfolder, wasRenamed
             }
-            catch (IOException ioEx) when ((ioEx.HResult & 0xFFFF) == 183)
+            catch (IOException ioEx) when ((ioEx.HResult & 0xFFFF) == 183 || (ioEx.HResult & 0xFFFF) == 0xB7) // 183: Cannot create a file when that file already exists. 0xB7 is ERROR_ALREADY_EXISTS
             {
-                _logger.Log($"FOUT: Kan '{fileInfo.Name}' niet verplaatsen naar '{Path.GetFileName(destinationFilePath)}'. Bestand bestaat al: {ioEx.Message}");
-                return (false, false, false, false);
+                _logger.Log($"FOUT (IO): Kan '{fileInfo.Name}' niet verplaatsen. Bestand bestaat mogelijk al op doel en GetUniqueFilePath kon het niet oplossen, of ander IO probleem. Pad: '{fullDestinationPath}'. Fout: {ioEx.Message}");
+                return Tuple.Create(true, false, false, false); // processed, !moved
             }
             catch (Exception moveEx)
             {
-                _logger.Log($"FOUT: Kon '{fileInfo.Name}' niet verplaatsen naar '{Path.GetFileName(destinationFilePath)}': {moveEx.Message}");
-                return (false, false, false, false);
+                _logger.Log($"FOUT: Kon '{fileInfo.Name}' niet verplaatsen naar '{Path.GetFileName(fullDestinationPath)}' in '{Path.GetDirectoryName(fullDestinationPath)}': {moveEx.Message}");
+                return Tuple.Create(true, false, false, false); // processed, !moved
             }
         }
 
+        // Helper methode om een uniek bestandspad te genereren
+        private string GetUniqueFilePath(string targetPath, string originalSourcePath)
+        {
+            // Als het doelpad hetzelfde is als het bronpad, is er geen conflict met zichzelf.
+            if (targetPath.Equals(originalSourcePath, StringComparison.OrdinalIgnoreCase))
+            {
+                return targetPath; // Geen wijziging nodig, het is hetzelfde bestand.
+            }
+
+            if (!File.Exists(targetPath))
+            {
+                return targetPath; // Pad is al uniek
+            }
+
+            string directory = Path.GetDirectoryName(targetPath);
+            string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(targetPath);
+            string extension = Path.GetExtension(targetPath);
+            int count = 1;
+            string newFilePath;
+            do
+            {
+                newFilePath = Path.Combine(directory, string.Format("{0}_{1}{2}", fileNameWithoutExtension, count++, extension));
+            } while (File.Exists(newFilePath) && !newFilePath.Equals(originalSourcePath, StringComparison.OrdinalIgnoreCase));
+
+            // Als de loop eindigt omdat newFilePath == originalSourcePath, betekent dit dat
+            // we proberen te hernoemen naar een naam die, na toevoeging van _N, overeenkomt met het origineel.
+            // Dit zou niet mogen gebeuren als het origineel niet al een _N had.
+            // Als de unieke naam toch het originele bronpad is, retourneer dan het originele doelpad,
+            // De aanroeper zal dan zien dat het niet verplaatst hoeft te worden.
+            if (File.Exists(newFilePath) && newFilePath.Equals(originalSourcePath, StringComparison.OrdinalIgnoreCase))
+            {
+                // Dit scenario is lastig: het "unieke" pad is het bronpad zelf.
+                // Het betekent dat het doelbestand (zonder _N) bestaat, en het unieke pad (_N) is het origineel.
+                // We moeten dan het *originele* targetPath teruggeven en de Move-operatie zal falen (wat goed is, want het bestand bestaat al).
+                // Of, als we *altijd* een _N willen als het doel (zonder _N) bestaat:
+                // Als het doel (zonder _N) het bronpad is, is er geen hernoeming.
+                // Als het doel (zonder _N) NIET het bronpad is, maar wel bestaat, dan is _N correct.
+                return targetPath; // Laat de File.Move falen als targetPath (zonder _N) al bestaat en niet het bronbestand is.
+                                   // Of forceer de _N versie, maar wees voorzichtig met het origineel.
+                                   // Voor nu, als het unieke pad uiteindelijk het bronpad is, geef het originele target terug.
+            }
+
+
+            return newFilePath;
+        }
+
+
         private IAiProvider GetAiProvider(string apiKey, string providerName, string azureEndpoint, string modelName)
         {
-            // Deze methode retourneert alleen IAiProvider voor tekst-gebaseerde taken.
-            // Vision providers worden geconfigureerd in ImageAnalysisService.
             if (providerName.Contains("Azure AI Vision") || providerName.Contains("OpenAI GPT-4 Vision"))
             {
-                _logger.Log($"INFO: GetAiProvider aangeroepen voor Vision provider '{providerName}'. Deze wordt apart afgehandeld. Retourneer null voor IAiProvider.");
+                _logger.Log($"INFO: GetAiProvider aangeroepen voor expliciete Vision provider '{providerName}'. Deze wordt apart afgehandeld. Retourneer null voor IAiProvider (tekst).");
                 return null;
             }
 
@@ -633,20 +644,19 @@ namespace AI_FileOrganizer.Services
                         return new GeminiAiProvider(apiKey, _httpClient);
                     case "OpenAI (openai.com)":
                         if (string.IsNullOrWhiteSpace(apiKey)) throw new ArgumentException("API Key voor OpenAI is vereist.");
-                        // Constructor OpenAiProvider(apiKey) of OpenAiProvider(apiKey, modelName)
-                        // Voor nu (apiKey) aannemend, modelName wordt doorgegeven aan GetTextCompletionAsync
-                        return new OpenAiProvider(apiKey);
+                        return new OpenAiProvider(apiKey); // Modelnaam wordt meegegeven aan GetTextCompletionAsync
                     case "Azure OpenAI":
                         if (string.IsNullOrWhiteSpace(azureEndpoint)) throw new ArgumentException("Azure Endpoint voor Azure OpenAI is vereist.");
                         if (string.IsNullOrWhiteSpace(apiKey)) throw new ArgumentException("API Key voor Azure OpenAI is vereist.");
                         // modelName is hier de deployment name
-                        return new AzureOpenAiProvider(azureEndpoint,apiKey);
+                        return new AzureOpenAiProvider(azureEndpoint, apiKey); // Model/Deployment wordt intern in provider afgehandeld of meegegeven
                     case "Lokaal ONNX-model":
-                        if (string.IsNullOrEmpty(SelectedOnnxModelPath) || !System.IO.File.Exists(SelectedOnnxModelPath))
+                        if (string.IsNullOrEmpty(SelectedOnnxModelPath) || !File.Exists(SelectedOnnxModelPath))
                         {
                             _logger.Log("FOUT: Geen geldig ONNX-model geselecteerd of pad is incorrect.");
                             return null;
                         }
+                        // Vocab pad kan optioneel zijn afhankelijk van de provider implementatie
                         return new OnnxRobBERTProvider(_logger, SelectedOnnxModelPath, SelectedOnnxVocabPath);
                     default:
                         _logger.Log($"FOUT: Onbekende Tekst AI-provider geselecteerd: '{providerName}'.");

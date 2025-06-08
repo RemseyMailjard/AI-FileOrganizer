@@ -281,6 +281,12 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="LogWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="LogWindow.Designer.cs">
+      <DependentUpon>LogWindow.cs</DependentUpon>
+    </Compile>
     <Compile Include="MainWindow.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -302,6 +308,7 @@
     <Compile Include="Services\Class2.csPhi3OnnxProvider.cs" />
     <Compile Include="Services\CredentialStorageService.cs" />
     <Compile Include="Services\DocxTextExtractor.cs" />
+    <Compile Include="Services\EmptyFolderCleaner.cs" />
     <Compile Include="Services\FileOrganizerService.cs" />
     <Compile Include="Services\GeminiAiProvider.cs" />
     <Compile Include="Services\IaProvider.cs" />
@@ -320,6 +327,9 @@
     <Compile Include="Utils\ILogger.cs" />
     <Compile Include="Utils\PersoonlijkeMappenStructuurGenerator.cs" />
     <Compile Include="Utils\UiLogger.cs" />
+    <EmbeddedResource Include="LogWindow.resx">
+      <DependentUpon>LogWindow.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="MainWindow.resx">
       <DependentUpon>MainWindow.cs</DependentUpon>
     </EmbeddedResource>

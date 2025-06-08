@@ -6,19 +6,21 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq; // Toegevoegd voor .Contains etc.
+using System.Linq;
 using System.Net.Http;
+using System.Text.RegularExpressions;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using ILogger = AI_FileOrganizer.Utils.ILogger; // Alias om conflicten te voorkomen
+using ILogger = AI_FileOrganizer.Utils.ILogger;
 
 namespace AI_FileOrganizer
 {
     public partial class MainWindow : Form
     {
         private readonly ILogger _logger;
-        private static readonly HttpClient _httpClient = new HttpClient(); // Static HttpClient wordt aanbevolen
+        private static readonly HttpClient _httpClient = new HttpClient();
         private long _totalTokensUsed = 0;
         private CancellationTokenSource _cancellationTokenSource;
 
@@ -26,7 +28,9 @@ namespace AI_FileOrganizer
         private readonly AiClassificationService _aiService;
         private readonly TextExtractionService _textExtractionService;
         private readonly CredentialStorageService _credentialStorageService;
-        private readonly ImageAnalysisService _imageAnalysisService; // <<< TOEGEVOEGD FIELD
+        private readonly ImageAnalysisService _imageAnalysisService;
+        private LogWindow _logWindow;
+
 
         public string SelectedOnnxModelPath { get; private set; }
         public string SelectedOnnxVocabPath { get; private set; }
@@ -35,25 +39,20 @@ namespace AI_FileOrganizer
         {
             InitializeComponent();
 
-            // Voor ExcelDataReader (indien gebruikt in XlsTextExtractor)
-            // System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance); // Eenmalig bij app start
-
             _logger = new UiLogger(rtbLog);
             _aiService = new AiClassificationService(_logger);
             _credentialStorageService = new CredentialStorageService(_logger);
-            _imageAnalysisService = new ImageAnalysisService(_logger, _httpClient); // <<< INITIALISEER HIER
+            _imageAnalysisService = new ImageAnalysisService(_logger, _httpClient);
 
             _textExtractionService = new TextExtractionService(
                 _logger,
                 new List<ITextExtractor>
                 {
-                    new PdfTextExtractor(_logger),    // Veronderstelt dat deze bestaat
+                    new PdfTextExtractor(_logger),
                     new DocxTextExtractor(_logger),
-                    new PptxTextExtractor(_logger),   // <<< TOEGEVOEGD
-                    new XlsxTextExtractor(_logger),   // <<< TOEGEVOEGD
-
+                    new PptxTextExtractor(_logger),
+                    new XlsxTextExtractor(_logger),
                     new PlainTextExtractor(_logger)
-                    // Voeg hier andere text extractors toe indien nodig
                 }
             );
 
@@ -63,7 +62,7 @@ namespace AI_FileOrganizer
                 _textExtractionService,
                 _credentialStorageService,
                 _httpClient,
-                _imageAnalysisService // <<< GEEF MEE AAN CONSTRUCTOR
+                _imageAnalysisService
             );
 
             _fileOrganizerService.ProgressChanged += (current, total) =>
@@ -81,23 +80,18 @@ namespace AI_FileOrganizer
                 _totalTokensUsed = tokens;
                 UpdateTokensUsedLabel();
             };
-            // In MainWindow.cs, constructor
 
+            // AANPASSING VOOR C# 7.3: Gebruik System.Tuple
             _fileOrganizerService.RequestRenameFile += async (originalName, suggestedName) =>
             {
-                // Deze event handler wordt mogelijk aangeroepen vanaf een achtergrondthread 
-                // door de FileOrganizerService. We moeten de UI interactie (het tonen van de dialoog)
-                // op de UI-thread uitvoeren.
+                // TaskCompletionSource met System.Tuple
+                var tcs = new TaskCompletionSource<Tuple<DialogResult, string, bool>>();
 
-                var tcs = new TaskCompletionSource<(DialogResult result, string newFileName, bool skipFile)>();
-
-                // Gebruik BeginInvoke om de actie op de UI-thread te plaatsen zonder de huidige thread te blokkeren.
-                // Control.InvokeRequired is hier niet strikt nodig omdat BeginInvoke al thread-safe is
-                // en de actie in de wachtrij van de UI-thread plaatst.
-                if (this.IsDisposed || !this.IsHandleCreated) // Voorkom aanroepen als form al weg is
+                if (this.IsDisposed || !this.IsHandleCreated)
                 {
                     _logger.Log("WAARSCHUWING: RequestRenameFile aangeroepen terwijl MainWindow niet beschikbaar is. Annuleer hernoemactie.");
-                    tcs.SetResult((DialogResult.Cancel, originalName, true)); // Annuleer en skip
+                    // Gebruik Tuple.Create voor System.Tuple
+                    tcs.SetResult(Tuple.Create(DialogResult.Cancel, originalName, true));
                 }
                 else
                 {
@@ -105,33 +99,33 @@ namespace AI_FileOrganizer
                     {
                         try
                         {
-                            if (this.IsDisposed) // Dubbelcheck
+                            if (this.IsDisposed)
                             {
-                                tcs.TrySetResult((DialogResult.Cancel, originalName, true));
+                                // Gebruik Tuple.Create voor System.Tuple
+                                tcs.TrySetResult(Tuple.Create(DialogResult.Cancel, originalName, true));
                                 return;
                             }
 
                             using (var renameForm = new FormRenameFile(originalName, suggestedName))
                             {
-                                // Zorg ervoor dat ShowDialog de owner meekrijgt voor correct modaal gedrag
-                                // en om te voorkomen dat de dialoog achter het hoofdvenster verdwijnt.
                                 DialogResult result = renameForm.ShowDialog(this);
-                                tcs.TrySetResult((result, renameForm.NewFileName, renameForm.SkipFile));
+                                // Gebruik Tuple.Create voor System.Tuple
+                                tcs.TrySetResult(Tuple.Create(result, renameForm.NewFileName, renameForm.SkipFile));
                             }
                         }
                         catch (Exception ex)
                         {
                             _logger.Log($"FOUT in RequestRenameFile UI thread: {ex.Message}");
-                            tcs.TrySetException(ex); // Geef de exceptie door aan de wachtende Task
+                            tcs.TrySetException(ex);
                         }
                     }));
                 }
-
-                return await tcs.Task; // Wacht asynchroon op het resultaat van de UI interactie
+                // De return type van tcs.Task is nu Task<Tuple<DialogResult, string, bool>>,
+                // wat overeenkomt met het delegate type.
+                return await tcs.Task;
             };
 
             // _cancellationTokenSource wordt nu per actie aangemaakt.
-            // TestOnnxRobBERTProvider();
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -139,12 +133,12 @@ namespace AI_FileOrganizer
             if (cmbProviderSelection.Items.Count == 0)
             {
                 cmbProviderSelection.Items.AddRange(new object[] {
-                    "Gemini (Google)",        // Tekst LLM
-                    "OpenAI (openai.com)",    // Tekst LLM (kan ook GPT-4o voor vision zijn)
-                    "Azure OpenAI",           // Tekst LLM (kan ook Vision model deployment zijn)
-                    "OpenAI GPT-4 Vision",    // Specifiek voor afbeeldingen
-                    "Azure AI Vision",        // Specifiek voor afbeeldingen
-                    "Lokaal ONNX-model"       // Tekst (RobBERT)
+                    "Gemini (Google)",
+                    "OpenAI (openai.com)",
+                    "Azure OpenAI",
+                    "OpenAI GPT-4 Vision",
+                    "Azure AI Vision",
+                    "Lokaal ONNX-model"
                 });
             }
             cmbProviderSelection.SelectedIndexChanged -= cmbProviderSelection_SelectedIndexChanged;
@@ -153,52 +147,51 @@ namespace AI_FileOrganizer
             cmbModelSelection.SelectedIndexChanged -= cmbModelSelection_SelectedIndexChanged;
             cmbModelSelection.SelectedIndexChanged += cmbModelSelection_SelectedIndexChanged;
 
-            // Selecteer een standaard provider
-            cmbProviderSelection.SelectedItem = "Gemini (Google)"; // Of een andere default
+            cmbProviderSelection.SelectedItem = "Gemini (Google)";
             if (cmbProviderSelection.SelectedIndex == -1 && cmbProviderSelection.Items.Count > 0)
             {
                 cmbProviderSelection.SelectedIndex = 0;
             }
 
-
-            // txtApiKey.Text = "YOUR_GOOGLE_API_KEY_HERE"; // Dit wordt nu door LoadApiKeyForSelectedProvider gedaan
             SetupApiKeyPlaceholder(txtApiKey, GetDefaultApiKeyPlaceholder(cmbProviderSelection.SelectedItem?.ToString() ?? ""));
             txtApiKey.UseSystemPasswordChar = true;
 
             string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
             string documentsPath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-            txtSourceFolder.Text = Path.Combine(desktopPath, "AI Organizer Bronmap"); // Voorbeeld paden
+            txtSourceFolder.Text = Path.Combine(desktopPath, "AI Organizer Bronmap");
             txtDestinationFolder.Text = Path.Combine(documentsPath, "AI Organizer Resultaat");
 
-            lblTokensUsed.Text = "Tokens/Transacties: 0"; // Algemener label
+            lblTokensUsed.Text = "Tokens used: 0";
             progressBar1.Minimum = 0;
             progressBar1.Value = 0;
             progressBar1.Style = ProgressBarStyle.Continuous;
             progressBar1.Visible = false;
             btnStopOrganization.Enabled = false;
             btnSaveLog.Enabled = false;
-            chkRenameFiles.Checked = true; // Standaard aan voor hernoemen
+            chkRenameFiles.Checked = true;
             lblAzureEndpoint.Visible = false;
             txtAzureEndpoint.Visible = false;
 
             SelectedOnnxModelPath = null;
             SelectedOnnxVocabPath = null;
 
-            LoadApiKeyForSelectedProvider(); // Laad API key na instellen default provider
+            LoadApiKeyForSelectedProvider();
         }
 
         private void LoadApiKeyForSelectedProvider()
         {
             string selectedProviderName = cmbProviderSelection.SelectedItem?.ToString() ?? "";
-            (string loadedApiKey, string loadedAzureEndpoint) = _credentialStorageService.GetApiKey(selectedProviderName);
+            Tuple<string, string> credentials = _credentialStorageService.GetApiKey(selectedProviderName); // Voor C# 7.3
+            string loadedApiKey = credentials.Item1;
+            string loadedAzureEndpoint = credentials.Item2;
 
-            // Algemene logica voor alle providers behalve ONNX
+
             if (selectedProviderName == "Lokaal ONNX-model")
             {
                 txtApiKey.Text = "";
                 txtApiKey.Enabled = false;
                 txtApiKey.ForeColor = System.Drawing.Color.Gray;
-                txtApiKey.Tag = null; // Placeholder is niet relevant
+                txtApiKey.Tag = null;
                 txtApiKey.UseSystemPasswordChar = false;
             }
             else
@@ -206,7 +199,7 @@ namespace AI_FileOrganizer
                 txtApiKey.Enabled = true;
                 txtApiKey.UseSystemPasswordChar = true;
                 string placeholder = GetDefaultApiKeyPlaceholder(selectedProviderName);
-                SetupApiKeyPlaceholder(txtApiKey, placeholder); // Zorgt voor correcte kleur en placeholder
+                SetupApiKeyPlaceholder(txtApiKey, placeholder);
 
                 if (!string.IsNullOrWhiteSpace(loadedApiKey) && loadedApiKey != placeholder)
                 {
@@ -215,7 +208,6 @@ namespace AI_FileOrganizer
                 }
             }
 
-            // Specifieke logica voor Azure providers (tekst of vision)
             if (selectedProviderName.Contains("Azure"))
             {
                 txtAzureEndpoint.Enabled = true;
@@ -232,7 +224,7 @@ namespace AI_FileOrganizer
             }
             else
             {
-                txtAzureEndpoint.Text = ""; // Leegmaken en verbergen als niet Azure
+                txtAzureEndpoint.Text = "";
                 txtAzureEndpoint.Enabled = false;
                 lblAzureEndpoint.Visible = false;
                 txtAzureEndpoint.Visible = false;
@@ -247,10 +239,9 @@ namespace AI_FileOrganizer
             if (providerName.Contains("OpenAI (openai.com)")) return "YOUR_OPENAI_API_KEY_HERE (voor Tekst)";
             if (providerName.Contains("Azure AI Vision")) return "YOUR_AZURE_VISION_API_KEY_HERE";
             if (providerName.Contains("Azure OpenAI")) return "YOUR_AZURE_OPENAI_API_KEY_HERE";
-            if (string.IsNullOrWhiteSpace(providerName) || providerName == "Lokaal ONNX-model") return ""; // Geen placeholder voor ONNX
+            if (string.IsNullOrWhiteSpace(providerName) || providerName == "Lokaal ONNX-model") return "";
             return "YOUR_API_KEY_HERE";
         }
-
 
         private void cmbProviderSelection_SelectedIndexChanged(object sender, EventArgs e)
         {
@@ -259,15 +250,14 @@ namespace AI_FileOrganizer
 
             SelectedOnnxModelPath = null;
             SelectedOnnxVocabPath = null;
-            cmbModelSelection.Enabled = true; // Standaard aan, tenzij ONNX en geen model gekozen
-            lblApiKey.Text = "API Key:"; // Algemeen label
-            lblModel.Text = "Model / Deployment:"; // Algemeen label
+            cmbModelSelection.Enabled = true;
+            lblApiKey.Text = "API Key:";
+            lblModel.Text = "Model / Deployment:";
 
             if (provider == "Gemini (Google)")
             {
                 cmbModelSelection.Items.AddRange(new object[] {
                     "gemini-1.5-pro-latest", "gemini-1.5-flash-latest", "gemini-pro"
-                    // Voeg meer toe indien relevant, "gemini-2.0-flash-lite" lijkt verouderd
                 });
                 lblApiKey.Text = "Google API Key:";
             }
@@ -278,21 +268,19 @@ namespace AI_FileOrganizer
             }
             else if (provider == "Azure OpenAI")
             {
-                cmbModelSelection.Items.AddRange(new object[] { "YOUR-AZURE-DEPLOYMENT-NAME" }); // Gebruiker moet dit invullen
+                cmbModelSelection.Items.AddRange(new object[] { "YOUR-AZURE-DEPLOYMENT-NAME" });
                 lblApiKey.Text = "Azure OpenAI API Key:";
                 lblModel.Text = "Deployment Name:";
             }
             else if (provider == "OpenAI GPT-4 Vision")
             {
-                cmbModelSelection.Items.AddRange(new object[] { "gpt-4o", "gpt-4-vision-preview" }); // gpt-4o is nieuwer en beter
+                cmbModelSelection.Items.AddRange(new object[] { "gpt-4o", "gpt-4-vision-preview" });
                 lblApiKey.Text = "OpenAI API Key (Vision):";
             }
             else if (provider == "Azure AI Vision")
             {
-                // Azure AI Vision (service) heeft geen "modellen" op dezelfde manier als LLMs.
-                // De API versie en features bepalen wat je gebruikt. Je kunt dit veld leeg laten of "Standaard" tonen.
                 cmbModelSelection.Items.Add("Standaard (via API versie)");
-                cmbModelSelection.Enabled = false; // Geen modelkeuze nodig voor standaard Vision API
+                cmbModelSelection.Enabled = false;
                 lblApiKey.Text = "Azure Vision API Key:";
                 lblModel.Text = "Model (N.v.t.):";
             }
@@ -308,13 +296,12 @@ namespace AI_FileOrganizer
             }
             else if (provider != "Lokaal ONNX-model" && provider != "Azure AI Vision")
             {
-                // Als er geen modellen zijn voor een cloud provider (behalve Azure AI Vision waar het niet strict nodig is)
                 cmbModelSelection.Items.Add("Geen modellen beschikbaar voor deze provider");
                 cmbModelSelection.SelectedIndex = 0;
                 cmbModelSelection.Enabled = false;
             }
 
-            LoadApiKeyForSelectedProvider(); // Laadt keys en stelt endpoint zichtbaarheid in
+            LoadApiKeyForSelectedProvider();
         }
 
         private void cmbModelSelection_SelectedIndexChanged(object sender, EventArgs e)
@@ -331,7 +318,7 @@ namespace AI_FileOrganizer
                     if (ofd.ShowDialog() == DialogResult.OK)
                     {
                         SelectedOnnxModelPath = ofd.FileName;
-                        cmbModelSelection.Items.Clear(); // Verwijder "Kies..."
+                        cmbModelSelection.Items.Clear();
                         cmbModelSelection.Items.Add(System.IO.Path.GetFileName(SelectedOnnxModelPath));
                         cmbModelSelection.SelectedIndex = 0;
 
@@ -342,7 +329,7 @@ namespace AI_FileOrganizer
                             {
                                 vocabDialog.Filter = "Tekstbestanden (*.txt)|*.txt|Alle bestanden (*.*)|*.*";
                                 vocabDialog.Title = "Selecteer het vocab.txt bestand";
-                                vocabDialog.InitialDirectory = Path.GetDirectoryName(SelectedOnnxModelPath); // Start in dezelfde map
+                                vocabDialog.InitialDirectory = Path.GetDirectoryName(SelectedOnnxModelPath);
                                 if (vocabDialog.ShowDialog() == DialogResult.OK)
                                 {
                                     SelectedOnnxVocabPath = vocabDialog.FileName;
@@ -352,11 +339,10 @@ namespace AI_FileOrganizer
                         }
                         else { SelectedOnnxVocabPath = null; }
                     }
-                    else // Gebruiker annuleerde ONNX model selectie
+                    else
                     {
                         SelectedOnnxModelPath = null;
                         SelectedOnnxVocabPath = null;
-                        // Reset naar "Kies..." als er geen model is of selectie mislukt
                         if (!cmbModelSelection.Items.OfType<string>().Any(item => item.EndsWith(".onnx", StringComparison.OrdinalIgnoreCase)))
                         {
                             cmbModelSelection.Items.Clear();
@@ -370,11 +356,9 @@ namespace AI_FileOrganizer
 
         private void SetupApiKeyPlaceholder(TextBox textBox, string placeholderText)
         {
-            // Verwijder eerst oude handlers om duplicatie te voorkomen
             textBox.GotFocus -= RemoveApiKeyPlaceholderInternal;
             textBox.LostFocus -= AddApiKeyPlaceholderInternal;
-
-            textBox.Tag = placeholderText; // Sla placeholder op in Tag
+            textBox.Tag = placeholderText;
 
             if (string.IsNullOrWhiteSpace(textBox.Text) || textBox.Text == placeholderText)
             {
@@ -383,14 +367,11 @@ namespace AI_FileOrganizer
             }
             else
             {
-                textBox.ForeColor = System.Drawing.Color.Black; // Zwarte tekst als er al iets is ingevuld
+                textBox.ForeColor = System.Drawing.Color.Black;
             }
-
-            // Voeg handlers opnieuw toe
             textBox.GotFocus += RemoveApiKeyPlaceholderInternal;
             textBox.LostFocus += AddApiKeyPlaceholderInternal;
         }
-
 
         private void RemoveApiKeyPlaceholderInternal(object sender, EventArgs e)
         {
@@ -440,7 +421,7 @@ namespace AI_FileOrganizer
             {
                 dialog.IsFolderPicker = true;
                 dialog.Title = "Selecteer de doelmap";
-                dialog.EnsurePathExists = true; // Zorgt ervoor dat de map gemaakt kan worden als hij niet bestaat, of checkt of hij bestaat
+                dialog.EnsurePathExists = true;
                 try { dialog.InitialDirectory = Directory.Exists(txtDestinationFolder.Text) ? txtDestinationFolder.Text : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments); }
                 catch { dialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments); }
                 dialog.RestoreDirectory = true;
@@ -457,18 +438,17 @@ namespace AI_FileOrganizer
             SetUiEnabled(false);
             btnStopOrganization.Enabled = true;
             btnSaveLog.Enabled = false;
-            progressBar1.Value = 0; // Reset progress bar
+            progressBar1.Value = 0;
             progressBar1.Visible = true;
 
             string providerName = cmbProviderSelection.SelectedItem?.ToString() ?? "";
             string selectedModel = cmbModelSelection.SelectedItem?.ToString() ?? "";
-            string apiKey = (txtApiKey.Tag?.ToString() == txtApiKey.Text) ? "" : txtApiKey.Text; // Alleen API key als niet placeholder
+            string apiKey = (txtApiKey.Tag?.ToString() == txtApiKey.Text) ? "" : txtApiKey.Text;
             string azureEndpoint = (txtAzureEndpoint.Tag?.ToString() == txtAzureEndpoint.Text) ? "" : txtAzureEndpoint.Text;
 
             _fileOrganizerService.SelectedOnnxModelPath = SelectedOnnxModelPath;
             _fileOrganizerService.SelectedOnnxVocabPath = SelectedOnnxVocabPath;
 
-            // Validatie voor API keys / Endpoints gebaseerd op provider
             bool credentialsValid = true;
             if (providerName.Contains("Azure") && (string.IsNullOrWhiteSpace(azureEndpoint) || string.IsNullOrWhiteSpace(apiKey)))
             {
@@ -486,12 +466,10 @@ namespace AI_FileOrganizer
                 credentialsValid = false;
             }
 
-
             if (!credentialsValid)
             {
                 SetUiEnabled(true); btnStopOrganization.Enabled = false; progressBar1.Visible = false; return;
             }
-
 
             if (!Directory.Exists(txtSourceFolder.Text))
             {
@@ -503,7 +481,6 @@ namespace AI_FileOrganizer
             _logger.Log($"Gebruikte provider: {providerName}, Model: {selectedModel}");
             if (chkRenameFiles.Checked) _logger.Log("Bestandsnamen worden hernoemd met AI-suggesties.");
             if (ApplicationSettings.UseDetailedSubfolders) _logger.Log("Gedetailleerde submappen worden gebruikt (indien van toepassing).");
-
 
             _totalTokensUsed = 0;
             UpdateTokensUsedLabel();
@@ -532,7 +509,7 @@ namespace AI_FileOrganizer
                 btnStopOrganization.Enabled = false;
                 btnSaveLog.Enabled = true;
                 progressBar1.Visible = false;
-                _cancellationTokenSource?.Dispose(); // Zorg dat het gedisposed wordt
+                _cancellationTokenSource?.Dispose();
                 _cancellationTokenSource = null;
             }
         }
@@ -541,7 +518,7 @@ namespace AI_FileOrganizer
         {
             _cancellationTokenSource?.Cancel();
             _logger.Log("Annulering aangevraagd...");
-            btnStopOrganization.Enabled = false; // Direct uitschakelen
+            btnStopOrganization.Enabled = false;
         }
 
         private void btnSaveLog_Click(object sender, EventArgs e)
@@ -560,7 +537,7 @@ namespace AI_FileOrganizer
                 {
                     try
                     {
-                        System.IO.File.WriteAllText(dialog.FileName, rtbLog.Text); // Gebruik System.IO.File
+                        File.WriteAllText(dialog.FileName, rtbLog.Text);
                         MessageBox.Show("Logbestand succesvol opgeslagen.", "Succes", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     }
                     catch (Exception ex)
@@ -573,26 +550,21 @@ namespace AI_FileOrganizer
 
         private void SetUiEnabled(bool enabled)
         {
-            // Vereenvoudigde logica voor het enablen/disablen van UI elementen
             txtSourceFolder.Enabled = enabled;
             btnSelectSourceFolder.Enabled = enabled;
             txtDestinationFolder.Enabled = enabled;
             btnSelectDestinationFolder.Enabled = enabled;
             cmbProviderSelection.Enabled = enabled;
-            cmbModelSelection.Enabled = enabled; // Logica voor enablen/disablen zit nu meer in cmbProviderSelection_SelectedIndexChanged
+            cmbModelSelection.Enabled = enabled;
             btnStartOrganization.Enabled = enabled;
             btnRenameSingleFile.Enabled = enabled;
             chkRenameFiles.Enabled = enabled;
-            btnGenerateStandardFolders.Enabled = enabled; // Voeg deze toe als je die hebt
+            btnGenerateStandardFolders.Enabled = enabled;
 
             string selectedProvider = cmbProviderSelection.SelectedItem?.ToString() ?? "";
             txtApiKey.Enabled = enabled && selectedProvider != "Lokaal ONNX-model";
             txtAzureEndpoint.Enabled = enabled && selectedProvider.Contains("Azure");
-
-            // Stop knop is apart beheerd
-            // btnStopOrganization.Enabled = !enabled; // Alleen aan als proces loopt
         }
-
 
         private void UpdateTokensUsedLabel()
         {
@@ -617,33 +589,22 @@ namespace AI_FileOrganizer
             }
         }
 
-        // btnRenameSingleFile_Click is al geüpdatet in het vorige antwoord om onderscheid te maken
-        // tussen documenten en afbeeldingen en de juiste service aan te roepen.
-        // De hierboven staande versie is degene die je providede, zorg dat die de logica bevat
-        // die we eerder bespraken. Ik zal hem hier nogmaals opnemen met de laatste correcties.
-
-        // In MainWindow.cs
-
-        private async void btnRenameSingleFile_Click(object sender, EventArgs e) // 'e' is hier de EventArgs
+        private async void btnRenameSingleFile_Click(object sender, EventArgs e)
         {
             rtbLog.Clear();
             SetUiEnabled(false);
-            btnStopOrganization.Enabled = false; // Stop knop is niet relevant voor een enkele, snelle actie
+            btnStopOrganization.Enabled = false;
             btnSaveLog.Enabled = false;
             progressBar1.Visible = false;
 
-            // Haal API key op, maar alleen als het niet de placeholder tekst is
             string apiKey = (txtApiKey.Tag is string placeholderApi && txtApiKey.Text == placeholderApi) ? "" : txtApiKey.Text;
             string providerName = cmbProviderSelection.SelectedItem?.ToString() ?? "";
-            string selectedModel = cmbModelSelection.SelectedItem?.ToString() ?? ""; // Kan leeg zijn als niet van toepassing
-                                                                                     // Haal Azure endpoint op, maar alleen als het niet de placeholder tekst is
+            string selectedModel = cmbModelSelection.SelectedItem?.ToString() ?? "";
             string azureEndpoint = (txtAzureEndpoint.Tag is string placeholderAzure && txtAzureEndpoint.Text == placeholderAzure) ? "" : txtAzureEndpoint.Text;
 
-            // Zet ONNX-paden, relevant als _fileOrganizerService een ONNX-operatie zou doen
             _fileOrganizerService.SelectedOnnxModelPath = SelectedOnnxModelPath;
             _fileOrganizerService.SelectedOnnxVocabPath = SelectedOnnxVocabPath;
 
-            // --- Provider/API Key validatie ---
             bool credentialsValid = true;
             if (string.IsNullOrWhiteSpace(providerName))
             {
@@ -655,7 +616,6 @@ namespace AI_FileOrganizer
                 _logger.Log("FOUT: Azure Endpoint en API Key zijn vereist voor de geselecteerde Azure provider.");
                 credentialsValid = false;
             }
-            // Geldt voor zowel tekst als vision OpenAI/Gemini providers die een API key nodig hebben
             else if ((providerName.Contains("Gemini") || providerName.Contains("OpenAI")) && string.IsNullOrWhiteSpace(apiKey))
             {
                 _logger.Log($"FOUT: API Key is vereist voor {providerName}.");
@@ -669,11 +629,11 @@ namespace AI_FileOrganizer
 
             if (!credentialsValid)
             {
-                SetUiEnabled(true); // Schakel UI weer in
+                SetUiEnabled(true);
                 return;
             }
 
-            _cancellationTokenSource?.Dispose(); // Gooi oude weg als die bestond
+            _cancellationTokenSource?.Dispose();
             _cancellationTokenSource = new CancellationTokenSource();
 
             using (var dialog = new CommonOpenFileDialog())
@@ -683,18 +643,12 @@ namespace AI_FileOrganizer
                 dialog.Multiselect = false;
                 dialog.Title = "Selecteer een bestand om te hernoemen";
 
-                // Gebruik de correcte ApplicationSettings properties
                 var docExtStr = string.Join(";", ApplicationSettings.DocumentExtensions.Select(ext => $"*{ext}"));
                 var imgExtStr = string.Join(";", ApplicationSettings.ImageExtensions.Select(ext => $"*{ext}"));
 
                 dialog.Filters.Add(new CommonFileDialogFilter("Documenten & Afbeeldingen", $"{docExtStr};{imgExtStr}"));
                 dialog.Filters.Add(new CommonFileDialogFilter("Documenten", docExtStr));
                 dialog.Filters.Add(new CommonFileDialogFilter("Afbeeldingen", imgExtStr));
-                // Je kunt meer specifieke filters toevoegen als je wilt:
-                // dialog.Filters.Add(new CommonFileDialogFilter("PDF Bestanden", "*.pdf"));
-                // dialog.Filters.Add(new CommonFileDialogFilter("Word Documenten", "*.docx"));
-                // dialog.Filters.Add(new CommonFileDialogFilter("PNG Afbeeldingen", "*.png"));
-                // dialog.Filters.Add(new CommonFileDialogFilter("JPEG Afbeeldingen", "*.jpg;*.jpeg"));
                 dialog.Filters.Add(new CommonFileDialogFilter("Alle Bestanden", "*.*"));
 
                 try
@@ -726,7 +680,7 @@ namespace AI_FileOrganizer
                     {
                         _logger.Log("Hernoem-actie geannuleerd door gebruiker.");
                     }
-                    catch (Exception ex) // <<< CORRECTIE: 'e' hernoemd naar 'ex'
+                    catch (Exception ex)
                     {
                         _logger.Log($"KRITIEKE FOUT tijdens enkel bestand hernoemen: {ex.Message}\n{ex.StackTrace}");
                     }
@@ -735,23 +689,23 @@ namespace AI_FileOrganizer
                 {
                     _logger.Log("Bestandselectie geannuleerd. Geen bestand hernoemd.");
                 }
-            } // Einde using (var dialog...)
+            }
 
             SetUiEnabled(true);
-            btnSaveLog.Enabled = true; // Log kan nu opgeslagen worden
-
-            // Dispose CancellationTokenSource als het nog bestaat en niet null is
-            // Dit gebeurt nu per actie, dus het zou altijd moeten bestaan tenzij er een eerdere exception was.
+            btnSaveLog.Enabled = true;
             _cancellationTokenSource?.Dispose();
-            _cancellationTokenSource = null; // Zet naar null om aan te geven dat er geen actieve token meer is
+            _cancellationTokenSource = null;
         }
+
         private void btnGenerateStandardFolders_Click(object sender, EventArgs e)
         {
             try
             {
-                var generator = new PersoonlijkeMappenStructuurGenerator(); // Zorg dat namespace correct is
+                // Veronderstel dat PersoonlijkeMappenStructuurGenerator in dezelfde namespace zit,
+                // of voeg de juiste using toe.
+                var generator = new PersoonlijkeMappenStructuurGenerator(); // Geef logger mee indien nodig
                 generator.Start();
-                _logger.Log("INFO: Standaard persoonlijke mappenstructuur generatie gestart/voltooid (zie console/output voor details).");
+                _logger.Log("INFO: Standaard persoonlijke mappenstructuur generatie gestart/voltooid.");
             }
             catch (Exception ex)
             {
@@ -760,9 +714,197 @@ namespace AI_FileOrganizer
             }
         }
 
-        private void lblSourceFolder_Click(object sender, EventArgs e)
+        // Zorg ervoor dat je bovenaan je .cs bestand hebt:
+        // using System.IO;
+        // using System.Threading;
+        // using System.Threading.Tasks;
+        // using System.Windows.Forms;
+        // using AI_FileOrganizer.Services;    // Namespace van je services
+        // using AI_FileOrganizer.Models;      // Voor IAiProvider etc.
+
+        private async void btnSuggestSubfolders_Click(object sender, EventArgs e)
         {
-            // Placeholder - kan verwijderd worden als niet gebruikt
+            btnSuggestSubfolders.Enabled = false;
+            rtbLog.AppendText("[INFO] Starten met genereren van gedetailleerde subfolder suggesties per bestand...\n");
+            StringBuilder suggestionsBuilder = new StringBuilder();
+            HashSet<string> uniqueSuggestedFullPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            try
+            {
+                string destinationFolder = txtDestinationFolder.Text;
+                if (string.IsNullOrWhiteSpace(destinationFolder))
+                {
+                    MessageBox.Show("Selecteer eerst een doelfolder (waar de 'classification.txt' verwacht wordt).", "Doelfolder vereist", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    rtbLog.AppendText("[FOUT] Geen doelfolder geselecteerd.\n");
+                    return;
+                }
+
+                if (!Directory.Exists(destinationFolder))
+                {
+                    MessageBox.Show(string.Format("De doelfolder '{0}' bestaat niet.", destinationFolder), "Fout", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    rtbLog.AppendText(string.Format("[FOUT] Doelfolder '{0}' niet gevonden.\n", destinationFolder));
+                    return;
+                }
+
+                string logFilePath = Path.Combine(destinationFolder, "classification.txt");
+
+                if (!File.Exists(logFilePath))
+                {
+                    MessageBox.Show(string.Format("De logfile 'classification.txt' werd niet gevonden in:\n{0}", destinationFolder), "Bestand niet gevonden", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    rtbLog.AppendText(string.Format("[FOUT] 'classification.txt' niet gevonden in '{0}'.\n", destinationFolder));
+                    return;
+                }
+
+                rtbLog.AppendText(string.Format("[INFO] Logfile '{0}' wordt gelezen...\n", logFilePath));
+                string[] logLines = await Task.Run(() => File.ReadAllLines(logFilePath)); // Voor C# 7.3
+
+                IAiProvider selectedProvider = GetSelectedAiProvider();
+                if (selectedProvider == null) return;
+
+                var aiService = new AiClassificationService(new UiLogger(rtbLog));
+                string modelName = cmbModelSelection.Text;
+
+                //if (string.IsNullOrWhiteSpace(modelName) && !(selectedProvider is LocalOnnxProvider)) // Pas LocalOnnxProvider aan
+                //{
+                //    MessageBox.Show("Selecteer een AI model.", "Configuratiefout", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                //    rtbLog.AppendText("[FOUT] AI model niet geselecteerd.\n");
+                //    return;
+                //}
+
+                rtbLog.AppendText("[INFO] Verwerken log entries voor gedetailleerde subfolder suggesties...\n");
+                int processedCount = 0;
+
+                foreach (string line in logLines)
+                {
+                    if (line.StartsWith("OK: Origineel '"))
+                    {
+                        // Parse de regel om originele bestandsnaam en nieuw pad (incl. hoofdcategorie) te krijgen
+                        // Voorbeeld: OK: Origineel 'foo.txt' (van 'C:\source') verplaatst/hernoemd naar 'CategorieX\nieuw_foo.txt'
+                        Match match = Regex.Match(line, @"Origineel '([^']*)'.*verplaatst/hernoemd naar '([^']*)'");
+                        if (match.Success)
+                        {
+                            processedCount++;
+                            string originalFilenameFromLog = match.Groups[1].Value;
+                            string newPathFullRelative = match.Groups[2].Value; // Bijv. "10. Werk en Loopbaan/SubMap/Bestand.ext" of "10. Werk en Loopbaan/Bestand.ext"
+
+                            string mainCategoryPath = Path.GetDirectoryName(newPathFullRelative); // Geeft "10. Werk en Loopbaan/SubMap" of "10. Werk en Loopbaan"
+                            if (string.IsNullOrEmpty(mainCategoryPath)) // Kan gebeuren als bestand direct in root van destination staat (onwaarschijnlijk met jouw setup)
+                            {
+                                rtbLog.AppendText(string.Format("[WAARSCHUWING] Kon hoofdcategorie niet bepalen voor '{0}'. Overgeslagen.\n", originalFilenameFromLog));
+                                continue;
+                            }
+
+                            // Voor `SuggestDetailedSubfolderAsync` hebben we de `determinedCategoryKey` nodig.
+                            // Dit is de naam van de *hoofdcategorie map*, bijv. "10. Werk en Loopbaan".
+                            // Als `mainCategoryPath` al een submap bevat (bijv. "Hoofdcategorie/AI_Submap"), willen we alleen "Hoofdcategorie".
+                            // Echter, `SuggestDetailedSubfolderAsync` voegt `PluralizeDocumentType(documentType)` toe als een basis.
+                            // We moeten de `determinedCategoryKey` consistent houden met wat `ApplicationSettings.DetailedSubfolderPrompts` verwacht.
+                            // Laten we aannemen dat de EERSTE map in `newPathFullRelative` de `determinedCategoryKey` is.
+                            string[] pathParts = newPathFullRelative.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+                            string determinedCategoryKeyFromLog = pathParts.Length > 0 ? pathParts[0] : null;
+
+                            if (string.IsNullOrEmpty(determinedCategoryKeyFromLog))
+                            {
+                                rtbLog.AppendText(string.Format("[WAARSCHUWING] Kon hoofdcategorie niet bepalen uit pad '{0}' voor bestand '{1}'. Overgeslagen.\n", newPathFullRelative, originalFilenameFromLog));
+                                continue;
+                            }
+
+                            rtbLog.AppendText(string.Format("[INFO] Vraag gedetailleerde subfolder aan voor: '{0}' (categorie: '{1}')...\n", originalFilenameFromLog, determinedCategoryKeyFromLog));
+
+                            // Voor `textToAnalyze`: In een ideale wereld zouden we de tekst hebben.
+                            // Voor nu geven we een lege string mee; `GetRelevantTextForAI` in je service zal dan fallbacken naar bestandsnaam.
+                            string suggestedDetailedPathPart = await aiService.SuggestDetailedSubfolderAsync(
+                                "", // textToAnalyze - leeg, service zal fallbacken op originalFilename
+                                originalFilenameFromLog,
+                                determinedCategoryKeyFromLog, // Dit moet de KEY zijn die ApplicationSettings verwacht, bijv. "Werk en Loopbaan"
+                                selectedProvider,
+                                modelName,
+                                CancellationToken.None
+                            );
+
+                            if (!string.IsNullOrWhiteSpace(suggestedDetailedPathPart))
+                            {
+                                string fullSuggestedPath = Path.Combine(determinedCategoryKeyFromLog, suggestedDetailedPathPart);
+                                if (uniqueSuggestedFullPaths.Add(fullSuggestedPath)) // Voeg toe aan HashSet om duplicaten te filteren
+                                {
+                                    suggestionsBuilder.AppendLine(fullSuggestedPath);
+                                    rtbLog.AppendText(string.Format("  -> AI suggereerde gedetailleerd pad: '{0}'\n", fullSuggestedPath));
+                                }
+                            }
+                            else
+                            {
+                                rtbLog.AppendText(string.Format("  -> AI gaf geen gedetailleerd subpad voor '{0}'.\n", originalFilenameFromLog));
+                            }
+                        }
+                    }
+                }
+
+                if (processedCount == 0)
+                {
+                    rtbLog.AppendText("[INFO] Geen verwerkte bestanden gevonden in de logfile om suggesties voor te genereren.\n");
+                    MessageBox.Show("Geen 'OK: Origineel...' regels gevonden in de logfile. Kan geen suggesties genereren.", "Log Leeg of Onjuist Formaat", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                string finalSuggestions = suggestionsBuilder.ToString();
+                if (string.IsNullOrWhiteSpace(finalSuggestions))
+                {
+                    MessageBox.Show("De AI heeft geen gedetailleerde subfolder suggesties gegeven voor de bestanden in de log.", "Geen Suggesties", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    rtbLog.AppendText("[INFO] Geen gedetailleerde subfolder suggesties gegenereerd.\n");
+                }
+                else
+                {
+                    rtbLog.AppendText("\n--- Gecombineerde AI Subfolder Suggesties ---\n" + finalSuggestions + "\n");
+                    MessageBox.Show("De AI heeft de volgende gecombineerde subfolderstructuur voorgesteld (unieke paden):\n\n" + finalSuggestions,
+                                    "Suggestie voor Subfolders", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                rtbLog.AppendText(string.Format("[FOUT] Algemene fout bij suggereren van gedetailleerde subfolders: {0}\nStack Trace: {1}\n", ex.Message, ex.StackTrace));
+                MessageBox.Show("Er is een fout opgetreden: " + ex.Message, "Fout", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                btnSuggestSubfolders.Enabled = true;
+                rtbLog.AppendText("[INFO] Verwerken gedetailleerde subfolder suggesties voltooid.\n");
+            }
+            
         }
+
+        private IAiProvider GetSelectedAiProvider()
+        {
+            throw new NotImplementedException();
+        }
+
+        // De GetSelectedAiProvider methode blijft zoals eerder voorgesteld,
+        // zorg ervoor dat de provider constructors en class namen correct zijn voor jouw project.
+        // private IAiProvider GetSelectedAiProvider() { ... } (zie vorige antwoord)
+
+        // Zorg ervoor dat de methode RequestSubfolderSuggestionFromLogAsync in AiClassificationService bestaat:
+        // In AiClassificationService.cs
+        // public async Task<string> RequestSubfolderSuggestionFromLogAsync(
+        //     string prompt,
+        //     IAiProvider aiProvider,
+        //     string modelName,
+        //     CancellationToken cancellationToken)
+        // {
+        //     this.LastCallSimulatedTokensUsed = 0;
+        //     if (aiProvider == null) { /* ... error handling ... */ return "Fout: AI Provider niet beschikbaar."; }
+        //     if (string.IsNullOrWhiteSpace(modelName)) { /* ... error handling ... */ return "Fout: Modelnaam niet opgegeven."; }
+        //
+        //     Tuple<string, long> aiResult = await CallAiProviderAsync(
+        //         aiProvider,
+        //         modelName,
+        //         prompt,
+        //         AiTaskSettings.SubfolderSuggestion, // Zorg dat dit bestaat!
+        //         cancellationToken,
+        //         "subfolder suggestie (log-based)");
+        //
+        //     this.LastCallSimulatedTokensUsed = aiResult.Item2;
+        //     string rawCompletion = aiResult.Item1;
+        //     if (string.IsNullOrWhiteSpace(rawCompletion)) { return string.Empty; }
+        //     return rawCompletion.Trim();
+        // }
     }
 }
