@@ -77,7 +77,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: setup-exe
-          path: AI-FileOrganizerSetup.exe
+          path: Installer/AI-FileOrganizerSetup.exe
           retention-days: 7
 
   release:
