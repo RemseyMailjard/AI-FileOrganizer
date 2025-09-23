@@ -4,7 +4,7 @@ namespace AI_FileOrganizer.Models
 {
     public static class ApplicationSettings
     {
-        public const int MaxTextLengthForLlm = 30000;
+        public const int MaxTextLengthForLlm = 30001;
         public const int MinSubfolderNameLength = 3;
         public const int MaxSubfolderNameLength = 50;
         public const int MaxFilenameLength = 100; // Maximum length for AI-generated filename
